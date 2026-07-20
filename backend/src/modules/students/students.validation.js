@@ -1,0 +1,58 @@
+const Joi = require('joi');
+
+const contactSchema = Joi.object({
+  contactName: Joi.string().min(2).max(100).required(),
+  relationship: Joi.string().valid('Father', 'Mother', 'Guardian', 'Sibling', 'Other').required(),
+  idNumber: Joi.string().allow('', null),
+  phoneNumber: Joi.string().pattern(/^[0-9+\-\s()]{7,20}$/).required(),
+  email: Joi.string().email().allow('', null),
+  isPrimary: Joi.boolean().default(false),
+  isGuardian: Joi.boolean().default(false),
+});
+
+exports.createSchema = Joi.object({
+  firstName: Joi.string().min(2).max(100).required(),
+  lastName: Joi.string().min(2).max(100).required(),
+  gender: Joi.string().valid('M', 'F').required(),
+  dateOfBirth: Joi.date().iso().required(),
+  nationality: Joi.string().max(50).default('Rwandan'),
+  residenceStatus: Joi.string().valid('Resident', 'Refugee', 'Non-resident').default('Resident'),
+  disability: Joi.string().allow('', null).default('None'),
+  parenthood: Joi.string().allow('', null),
+  fatherName: Joi.string().allow('', null),
+  motherName: Joi.string().allow('', null),
+  email: Joi.string().email().allow('', null),
+  phone: Joi.string().allow('', null),
+  officialPaperType: Joi.string().allow('', null),
+  officialPaperNo: Joi.string().allow('', null),
+  province: Joi.string().allow('', null),
+  district: Joi.string().allow('', null),
+  sector: Joi.string().allow('', null),
+  cell: Joi.string().allow('', null),
+  village: Joi.string().allow('', null),
+  detailAddress: Joi.string().allow('', null),
+  academicYearId: Joi.number().integer().positive().required(),
+  classId: Joi.number().integer().positive().required(),
+  termId: Joi.number().integer().positive().allow(null),
+  boardingCategory: Joi.string().valid('Day', 'Boarding').default('Day'),
+  sponsorshipType: Joi.string().allow('', null),
+  gorFunded: Joi.boolean().default(false),
+  contacts: Joi.array().items(contactSchema).min(1).required(),
+});
+
+exports.updateSchema = Joi.object({
+  firstName: Joi.string().min(2).max(100),
+  lastName: Joi.string().min(2).max(100),
+  gender: Joi.string().valid('M', 'F'),
+  dateOfBirth: Joi.date().iso(),
+  email: Joi.string().email().allow('', null),
+  phone: Joi.string().allow('', null),
+  status: Joi.string().valid('active', 'transferred', 'graduated', 'dropped'),
+}).min(1);
+
+exports.promoteSchema = Joi.object({
+  fromAcademicYearId: Joi.number().integer().positive().required(),
+  toAcademicYearId: Joi.number().integer().positive().required(),
+  studentIds: Joi.array().items(Joi.number().integer().positive()).min(1).required(),
+  targetClassIds: Joi.object().pattern(Joi.string(), Joi.number().integer().positive()),
+});
