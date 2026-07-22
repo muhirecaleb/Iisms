@@ -1,19 +1,55 @@
-const fs = require('fs');
-const path = require('path');
-const router = require('express').Router();
+const fs = require("fs");
+const path = require("path");
+const express = require("express");
+const router = express.Router();
+const rateLimit = require("express-rate-limit");
+const validate = require("../middleware/validate");
+const authController = require("../modules/auth/auth.controller");
+const { loginSchema } = require("../modules/auth/auth.validation");
 
-const MODULES_DIR = path.join(__dirname, '../modules');
+const MODULES_DIR = path.join(__dirname, "../modules");
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: {
+    success: false,
+    error: { code: "RATE_LIMIT", message: "Too many login attempts" },
+  },
+});
 
 // Health check endpoint (no auth required)
-router.get('/health', (req, res) => {
+router.get("/health", (req, res) => {
   res.json({
     success: true,
     data: {
-      status: 'ok',
+      status: "ok",
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     },
   });
+});
+
+// Compatibility login endpoint for clients calling /api/v1/login
+router.post(
+  "/login",
+  loginLimiter,
+  validate(loginSchema),
+  authController.login,
+);
+router.get("/login", (req, res) => {
+  res.status(405).json({
+    success: false,
+    error: {
+      code: "METHOD_NOT_ALLOWED",
+      message: "Use POST /api/v1/login with { username, password }",
+    },
+  });
+});
+
+// Compatibility change-password endpoint for clients calling /api/v1/change-password
+router.put("/change-password", (req, res, next) => {
+  authController.changePassword(req, res, next);
 });
 
 // Auto-discover and register module routes
@@ -25,10 +61,14 @@ moduleDirs.forEach((moduleName) => {
 
   if (stats.isDirectory()) {
     // Check for nested system modules
-    if (moduleName === 'system') {
+    if (moduleName === "system") {
       const systemModules = fs.readdirSync(modulePath);
       systemModules.forEach((sysModule) => {
-        const sysRoutesPath = path.join(modulePath, sysModule, `${sysModule}.routes.js`);
+        const sysRoutesPath = path.join(
+          modulePath,
+          sysModule,
+          `${sysModule}.routes.js`,
+        );
         if (fs.existsSync(sysRoutesPath)) {
           const sysRouter = require(sysRoutesPath);
           router.use(`/system/${sysModule}`, sysRouter);
