@@ -30,7 +30,7 @@ exports.listInvoices = async (req, res, next) => {
 
 exports.generateInvoices = async (req, res, next) => {
   try {
-    const result = await financeService.generateInvoices(req.body);
+    const result = await financeService.generateInvoices(req.body, req.user.id);
     res.json({ success: true, data: result });
   } catch (error) { next(error); }
 };
