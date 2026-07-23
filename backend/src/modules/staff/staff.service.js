@@ -2,6 +2,8 @@ const db = require('../../config/database');
 
 class StaffService {
   async list({ page = 1, limit = 20, search, academicYearId, status, category }) {
+    page = Number(page);
+    limit = Number(limit);
     const offset = (page - 1) * limit;
     let query = `
       SELECT s.* FROM staff s
@@ -42,7 +44,9 @@ class StaffService {
     const staffId = result.insertId;
     // Enroll in current academic year
     const [years] = await db.query('SELECT year_id FROM academic_years WHERE is_current = 1 LIMIT 1');
-    if (years.length) await db.query('INSERT INTO staff_academic_years (staff_id, academic_year_id) VALUES (?, ?)', [staffId, years[0].year_id]);
+    if (years.length) {
+      await db.query('INSERT INTO staff_academic_years (staff_id, academic_year_id) VALUES (?, ?)', [staffId, years[0].year_id]);
+    }
     return { staffId, staffNo };
   }
 
@@ -140,7 +144,7 @@ class StaffService {
       try {
         await db.query('INSERT IGNORE INTO staff_academic_years (staff_id, academic_year_id) VALUES (?, ?)', [sid, toAcademicYearId]);
         const [check] = await db.query('SELECT ROW_COUNT() as affected');
-        if (check[0].affected > 0) copied++; else exists++;
+        if (check[0].affected > 0) { copied++; } else { exists++; }
       } catch { exists++; }
     }
     return { copied, alreadyExists: exists };

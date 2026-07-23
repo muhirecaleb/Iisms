@@ -92,8 +92,8 @@ class AuthService {
     return {
       maskedEmail: maskEmail(email),
       expiresIn: 600,
-      devMode: env.otp.devMode,
-      ...(env.otp.devMode && { devCode: code }),
+      devMode: env.otp.devMode || env.nodeEnv !== 'production',
+      ...((env.otp.devMode || env.nodeEnv !== 'production') && { devCode: code }),
     };
   }
 
@@ -265,7 +265,7 @@ class AuthService {
   async getProfile(userId) {
     const [users] = await db.query(
       `SELECT u.user_id, u.username, u.full_name, u.email, u.phone, u.last_login_at,
-              r.role_name, r.role_id
+              u.avatar_file_id, r.role_name, r.role_id
        FROM users u JOIN roles r ON u.role_id = r.role_id
        WHERE u.user_id = ? AND u.deleted_at IS NULL`,
       [userId],
@@ -274,13 +274,34 @@ class AuthService {
       throw new NotFoundError("User not found");
     }
 
+    const user = users[0];
+
+    // Fetch avatar path if avatar_file_id exists
+    let avatarUrl = null;
+    if (user.avatar_file_id) {
+      const [files] = await db.query(
+        "SELECT storage_path FROM file_uploads WHERE file_id = ?",
+        [user.avatar_file_id],
+      );
+      if (files.length > 0) {
+        avatarUrl = `/uploads/${files[0].storage_path}`;
+      }
+    }
+
     const [perms] = await db.query(
       "SELECT module_key FROM role_permissions WHERE role_id = ? AND can_view = TRUE",
-      [users[0].role_id],
+      [user.role_id],
     );
 
     return {
-      ...users[0],
+      userId: user.user_id,
+      username: user.username,
+      fullName: user.full_name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role_name,
+      lastLoginAt: user.last_login_at,
+      avatarUrl,
       permissions: perms.map((p) => p.module_key),
     };
   }
@@ -304,6 +325,41 @@ class AuthService {
       hash,
       userId,
     ]);
+  }
+
+  async updateProfile(userId, { fullName }) {
+    await db.query("UPDATE users SET full_name = ? WHERE user_id = ?", [
+      fullName,
+      userId,
+    ]);
+    return { message: 'Profile updated successfully' };
+  }
+
+  async uploadAvatar(userId, file) {
+    if (!file) {
+      const { ValidationError } = require("../../utils/errors");
+      throw new ValidationError([{ field: 'avatar', message: 'No image file provided' }]);
+    }
+
+    // Use just the filename (not the absolute path) for serving via static middleware
+    const filename = file.filename;
+
+    // Insert file metadata into file_uploads
+    const [result] = await db.query(
+      `INSERT INTO file_uploads (original_name, storage_path, mime_type, file_size, entity_type, entity_id, uploaded_by)
+       VALUES (?, ?, ?, ?, 'user_avatar', ?, ?)`,
+      [file.originalname, filename, file.mimetype, file.size, userId, userId],
+    );
+
+    const fileId = result.insertId;
+
+    // Update user's avatar_file_id
+    await db.query("UPDATE users SET avatar_file_id = ? WHERE user_id = ?", [
+      fileId,
+      userId,
+    ]);
+
+    return { avatarFileId: fileId, avatarPath: `/uploads/${filename}` };
   }
 
   async _logAttempt(userId, username, status) {

@@ -7,6 +7,11 @@ const { ForbiddenError } = require('../utils/errors');
  */
 function rbacMiddleware(moduleKey, operations = ['canView']) {
   return (req, res, next) => {
+    // Administrators bypass all permission checks
+    if (req.user?.role === 'Administrator') {
+      return next();
+    }
+
     const permissions = req.user?.permissions || {};
     const modulePerms = permissions[moduleKey];
 

@@ -64,3 +64,21 @@ exports.changePassword = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.updateProfile = async (req, res, next) => {
+  try {
+    const result = await authService.updateProfile(req.user.id, req.body);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.uploadAvatar = async (req, res, next) => {
+  try {
+    const result = await authService.uploadAvatar(req.user.id, req.file);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};

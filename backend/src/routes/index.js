@@ -2,21 +2,11 @@ const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const router = express.Router();
-const rateLimit = require("express-rate-limit");
 const validate = require("../middleware/validate");
 const authController = require("../modules/auth/auth.controller");
 const { loginSchema } = require("../modules/auth/auth.validation");
 
 const MODULES_DIR = path.join(__dirname, "../modules");
-
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: {
-    success: false,
-    error: { code: "RATE_LIMIT", message: "Too many login attempts" },
-  },
-});
 
 // Health check endpoint (no auth required)
 router.get("/health", (req, res) => {
@@ -33,7 +23,6 @@ router.get("/health", (req, res) => {
 // Compatibility login endpoint for clients calling /api/v1/login
 router.post(
   "/login",
-  loginLimiter,
   validate(loginSchema),
   authController.login,
 );

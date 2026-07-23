@@ -2,6 +2,8 @@ const db = require('../../config/database');
 
 class StudentService {
   async list({ page = 1, limit = 20, search, academicYearId, gender, status, level, trade, sortBy = 'created_at', sortOrder = 'desc' }) {
+    page = Number(page);
+    limit = Number(limit);
     const offset = (page - 1) * limit;
     let query = `
       SELECT s.*, c.class_name, c.level, c.trade, sar.boarding_category, sar.sponsorship_type
@@ -71,20 +73,30 @@ class StudentService {
       const admissionNo = `INT-${String(year).slice(-2)}-${String(seq[0].next_seq).padStart(3, '0')}`;
 
       const [studentResult] = await connection.query(
-        `INSERT INTO students (admission_no, first_name, last_name, gender, date_of_birth, nationality, residence_status, disability, parenthood, father_name, mother_name, email, phone, official_paper_type, official_paper_no, province, district, sector, cell, village, detail_address, status, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+        `INSERT INTO students (admission_no, first_name, last_name, gender, date_of_birth, nationality, residence_status, disability, parenthood, father_name, mother_name, email, phone, official_paper_type, official_paper_no, national_student_code, province, district, sector, cell, village, detail_address, status, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
         [admissionNo, data.firstName, data.lastName, data.gender, data.dateOfBirth,
          data.nationality || 'Rwandan', data.residenceStatus || 'Resident', data.disability || 'None',
          data.parenthood, data.fatherName, data.motherName, data.email, data.phone,
-         data.officialPaperType, data.officialPaperNo, data.province, data.district,
+         data.officialPaperType, data.officialPaperNo, data.nationalStudentCode,
+         data.province, data.district,
          data.sector, data.cell, data.village, data.detailAddress, userId]
       );
       const studentId = studentResult.insertId;
 
+      // Resolve academic year if not provided
+      let yearId = data.academicYearId;
+      if (!yearId) {
+        const [years] = await connection.query(
+          'SELECT year_id FROM academic_years WHERE is_current = TRUE LIMIT 1'
+        );
+        yearId = years.length > 0 ? years[0].year_id : null;
+      }
+
       await connection.query(
         `INSERT INTO student_academic_records (student_id, academic_year_id, class_id, term_id, boarding_category, sponsorship_type, gor_funded)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [studentId, data.academicYearId, data.classId, data.termId,
+        [studentId, yearId, data.classId, data.termId,
          data.boardingCategory || 'Day', data.sponsorshipType, data.gorFunded || false]
       );
 
@@ -109,8 +121,80 @@ class StudentService {
     }
   }
 
-  async update(id, data, userId) { return { id, ...data }; }
-  async delete(id, userId) { return true; }
+  async update(id, data, userId) {
+    const [existing] = await db.query(
+      'SELECT student_id FROM students WHERE student_id = ? AND deleted_at IS NULL',
+      [id]
+    );
+    if (existing.length === 0) {
+      const { NotFoundError } = require('../../utils/errors');
+      throw new NotFoundError('Student not found');
+    }
+
+    const fields = [];
+    const params = [];
+
+    const fieldMap = {
+      firstName: 'first_name',
+      lastName: 'last_name',
+      gender: 'gender',
+      dateOfBirth: 'date_of_birth',
+      nationality: 'nationality',
+      residenceStatus: 'residence_status',
+      disability: 'disability',
+      parenthood: 'parenthood',
+      fatherName: 'father_name',
+      motherName: 'mother_name',
+      email: 'email',
+      phone: 'phone',
+      officialPaperType: 'official_paper_type',
+      officialPaperNo: 'official_paper_no',
+      nationalStudentCode: 'national_student_code',
+      province: 'province',
+      district: 'district',
+      sector: 'sector',
+      cell: 'cell',
+      village: 'village',
+      detailAddress: 'detail_address',
+      status: 'status',
+      photoFileId: 'photo_file_id',
+    };
+
+    for (const [camelKey, dbCol] of Object.entries(fieldMap)) {
+      if (data[camelKey] !== undefined && data[camelKey] !== null) {
+        fields.push(`${dbCol} = ?`);
+        params.push(data[camelKey]);
+      }
+    }
+
+    if (fields.length > 0) {
+      fields.push('updated_at = NOW()');
+      params.push(id);
+      await db.query(
+        `UPDATE students SET ${fields.join(', ')} WHERE student_id = ? AND deleted_at IS NULL`,
+        params
+      );
+    }
+
+    return { id: parseInt(id, 10) };
+  }
+
+  async delete(id, userId) {
+    const [existing] = await db.query(
+      'SELECT student_id FROM students WHERE student_id = ? AND deleted_at IS NULL',
+      [id]
+    );
+    if (existing.length === 0) {
+      const { NotFoundError } = require('../../utils/errors');
+      throw new NotFoundError('Student not found');
+    }
+
+    await db.query(
+      'UPDATE students SET deleted_at = NOW() WHERE student_id = ?',
+      [id]
+    );
+    return true;
+  }
   async promote(data, userId) { return { promoted: 0, skipped: 0 }; }
   async exportCsv({ academicYearId, search }) { return 'student_id,first_name,last_name\n'; }
 }

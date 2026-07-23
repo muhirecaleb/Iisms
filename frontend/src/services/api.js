@@ -7,7 +7,7 @@ import axios from 'axios';
  * - Response interceptor handles 401 → token refresh → retry
  */
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/v1',
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true, // Sends httpOnly refresh cookie
   timeout: 15000,
@@ -52,10 +52,10 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Don't try to refresh if the failing request is itself the refresh endpoint
-    if (originalRequest.url === '/auth/refresh') {
-      localStorage.removeItem('accessToken');
-      window.location.href = '/login';
+    // Don't try to refresh if the failing request is an auth endpoint (login, otp, etc.)
+    // or if it's the refresh endpoint itself — the user isn't authenticated yet.
+    const authUrls = ['/auth/login', '/auth/send-otp', '/auth/verify-otp', '/auth/refresh'];
+    if (authUrls.includes(originalRequest.url)) {
       return Promise.reject(error);
     }
 
