@@ -12,6 +12,10 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import ClassesPage from './pages/classes/ClassesPage';
 import FinancePage from './pages/finance/FinancePage';
 import AcademicYearsPage from './pages/academic-years/AcademicYearsPage';
+import TasksPage from './pages/tasks/TasksPage';
+import RolesPage from './pages/roles/RolesPage';
+import UsersPage from './pages/users/UsersPage';
+import LibraryPage from './pages/library/LibraryPage';
 
 // ─── Protected Route ────────────────────────────────────────────
 function ProtectedRoute({ children }) {
@@ -96,10 +100,7 @@ function AppContent() {
         <Route path="/tasks" element={
           <ProtectedRoute>
             <DashboardLayout>
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-light)' }}>
-                <h2>Tasks Module</h2>
-                <p>Coming soon</p>
-              </div>
+              <TasksPage />
             </DashboardLayout>
           </ProtectedRoute>
         } />
@@ -120,10 +121,7 @@ function AppContent() {
         <Route path="/roles" element={
           <ProtectedRoute>
             <DashboardLayout>
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-light)' }}>
-                <h2>Roles & Permissions</h2>
-                <p>Coming soon</p>
-              </div>
+              <RolesPage />
             </DashboardLayout>
           </ProtectedRoute>
         } />
@@ -131,6 +129,20 @@ function AppContent() {
           <ProtectedRoute>
             <DashboardLayout>
               <ProfilePage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/library" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <LibraryPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/users" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <UsersPage />
             </DashboardLayout>
           </ProtectedRoute>
         } />

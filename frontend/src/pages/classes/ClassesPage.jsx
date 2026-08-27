@@ -7,6 +7,7 @@ import {
   listClassStudents,
 } from '../../services/classes.service';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 
 // ─── Helpers ─────────────────────────────────────────────────
 const formatName = (row) => {
@@ -350,6 +351,11 @@ function StatusBadge({ status }) {
 
 // ─── Main Page ──────────────────────────────────────────────
 export default function ClassesPage() {
+  const { canPerform } = useAuth();
+  const canCreate = canPerform('students', 'create');
+  const canEdit = canPerform('students', 'edit');
+  const canDelete = canPerform('students', 'delete');
+
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -457,6 +463,7 @@ export default function ClassesPage() {
             </p>
           )}
         </div>
+        {canCreate && (
         <button
           onClick={() => setShowForm(true)}
           style={{
@@ -473,6 +480,7 @@ export default function ClassesPage() {
           </svg>
           Add Class
         </button>
+        )}
       </div>
 
       {/* Stats Row */}
@@ -615,6 +623,7 @@ export default function ClassesPage() {
                             <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
                           </svg>
                         </ActionBtn>
+                        {canEdit && (
                         <ActionBtn
                           title="Edit"
                           onClick={() => setEditingClass(c)}
@@ -624,6 +633,8 @@ export default function ClassesPage() {
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                           </svg>
                         </ActionBtn>
+                        )}
+                        {canDelete && (
                         <ActionBtn
                           title="Delete"
                           onClick={() => setDeleting(c)}
@@ -633,6 +644,7 @@ export default function ClassesPage() {
                             <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                           </svg>
                         </ActionBtn>
+                        )}
                       </div>
                     </Td>
                   </tr>

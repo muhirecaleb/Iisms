@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   getFinanceDashboard,
   getFeeStructure,
@@ -13,9 +13,12 @@ import {
   deleteSponsorship,
   searchStudents,
   seedFinanceData,
+  listAcademicYears,
+  listTerms,
 } from '../../services/finance.service';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 
 // ─── Helpers ─────────────────────────────────────────────────
 const formatCurrency = (amount) => {
@@ -127,40 +130,124 @@ const TABS = [
 function OverviewTab() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [invoices, setInvoices] = useState([]);
 
   useEffect(() => {
     getFinanceDashboard()
       .then(setData)
       .catch(() => toast.error('Failed to load finance data'))
       .finally(() => setLoading(false));
+    listInvoices({ limit: 200 }).then((r) => {
+      setInvoices(Array.isArray(r) ? r : (r?.data || []));
+    }).catch(() => {});
   }, []);
 
   const k = data?.kpis || {};
 
+  // Status breakdown
+  const statusCounts = invoices.reduce((acc, inv) => {
+    acc[inv.status] = (acc[inv.status] || 0) + 1;
+    return acc;
+  }, {});
+  const total = invoices.length || 1;
+
+  // Class breakdown
+  const classData = invoices.reduce((acc, inv) => {
+    const cls = inv.class_name || 'Unknown';
+    if (!acc[cls]) acc[cls] = { count: 0, due: 0, paid: 0 };
+    acc[cls].count++;
+    acc[cls].due += Number(inv.amount_due || 0);
+    if (inv.status === 'paid') acc[cls].paid += Number(inv.amount_due || 0);
+    return acc;
+  }, {});
+  const maxClassDue = Math.max(...Object.values(classData).map((c) => c.due), 1);
+
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18, marginBottom: 28 }}>
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18, marginBottom: 24 }}>
         <StatCard label="Total Students" value={loading ? '—' : k.totalStudents || 0} color="#2563EB" loading={loading} />
         <StatCard label="Total Invoiced" value={loading ? '—' : formatCurrency(k.totalInvoiced)} color="#7C3AED" loading={loading} />
         <StatCard label="Total Collected" value={loading ? '—' : formatCurrency(k.totalCollected)} subtitle={loading ? '' : `Rate: ${k.collectionRate || 0}%`} color="#059669" loading={loading} />
         <StatCard label="Outstanding" value={loading ? '—' : formatCurrency(k.outstanding)} color="#DC2626" loading={loading} />
       </div>
 
-      {/* Collection Progress */}
-      {!loading && k.totalInvoiced > 0 && (
-        <div style={{ background: '#fff', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-light)', padding: 24 }}>
-          <h3 style={{ margin: '0 0 16px', fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-text-heading)' }}>Collection Progress</h3>
-          <div style={{ background: 'var(--color-bg)', borderRadius: 8, height: 24, overflow: 'hidden', marginBottom: 8 }}>
-            <div style={{
-              height: '100%', borderRadius: 8,
-              width: `${Math.min(Number(k.collectionRate) || 0, 100)}%`,
-              background: 'linear-gradient(90deg, #059669, #10B981)',
-              transition: 'width 0.6s ease',
-            }} />
+      {!loading && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 24 }}>
+          {/* Collection Progress + Status Breakdown */}
+          <div style={{ background: '#fff', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-light)', padding: 24 }}>
+            <h3 style={{ margin: '0 0 20px', fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-text-heading)' }}>Collection Progress</h3>
+
+            {/* Circular Progress */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 32, marginBottom: 24 }}>
+              <div style={{ position: 'relative', width: 120, height: 120, flexShrink: 0 }}>
+                <svg width="120" height="120" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="#E5E7EB" strokeWidth="10" />
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="url(#progressGradient)" strokeWidth="10" strokeLinecap="round"
+                    strokeDasharray={`${(Number(k.collectionRate) || 0) * 3.14} ${314 - (Number(k.collectionRate) || 0) * 3.14}`}
+                    strokeDashoffset="78.5" style={{ transition: 'stroke-dasharray 0.6s ease' }} />
+                  <defs><linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#059669" /><stop offset="100%" stopColor="#10B981" /></linearGradient></defs>
+                </svg>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--color-text-heading)' }}>{k.collectionRate || 0}%</span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--color-text-light)' }}>collected</span>
+                </div>
+              </div>
+
+              {/* Status Legend */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+                {[
+                  { key: 'paid', label: 'Paid', color: '#059669' },
+                  { key: 'partially_paid', label: 'Partial', color: '#2563EB' },
+                  { key: 'open', label: 'Open', color: '#D97706' },
+                  { key: 'void', label: 'Void', color: '#64748B' },
+                ].map(({ key, label, color }) => (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: color, flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text)', flex: 1 }}>{label}</span>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-heading)' }}>{statusCounts[key] || 0}</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--color-text-light)', width: 35, textAlign: 'right' }}>{total > 0 ? Math.round(((statusCounts[key] || 0) / total) * 100) : 0}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Horizontal Progress Bar */}
+            <div style={{ background: 'var(--color-bg)', borderRadius: 8, height: 10, overflow: 'hidden', display: 'flex' }}>
+              <div style={{ width: `${total > 0 ? ((statusCounts.paid || 0) / total) * 100 : 0}%`, background: '#059669', transition: 'width 0.6s ease' }} />
+              <div style={{ width: `${total > 0 ? ((statusCounts.partially_paid || 0) / total) * 100 : 0}%`, background: '#2563EB', transition: 'width 0.6s ease' }} />
+              <div style={{ width: `${total > 0 ? ((statusCounts.open || 0) / total) * 100 : 0}%`, background: '#D97706', transition: 'width 0.6s ease' }} />
+              <div style={{ width: `${total > 0 ? ((statusCounts.void || 0) / total) * 100 : 0}%`, background: '#64748B', transition: 'width 0.6s ease' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: '0.75rem', color: 'var(--color-text-light)' }}>
+              <span>{formatCurrency(k.totalCollected)} collected</span>
+              <span>{formatCurrency(k.totalInvoiced)} total</span>
+            </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
-            <span>{formatCurrency(k.totalCollected)} collected</span>
-            <span>{formatCurrency(k.totalInvoiced)} total</span>
+
+          {/* By Class Breakdown */}
+          <div style={{ background: '#fff', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-light)', padding: 24 }}>
+            <h3 style={{ margin: '0 0 20px', fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-text-heading)' }}>Invoices by Class</h3>
+            {Object.keys(classData).length === 0 ? (
+              <div style={{ padding: 20, textAlign: 'center', color: 'var(--color-text-light)', fontSize: '0.85rem' }}>No invoice data yet</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {Object.entries(classData).sort(([a], [b]) => a.localeCompare(b)).map(([cls, info]) => (
+                  <div key={cls}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-text-heading)' }}>{cls}</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--color-text-light)' }}>({info.count})</span>
+                      </div>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-text-heading)' }}>{formatCurrency(info.due)}</span>
+                    </div>
+                    <div style={{ background: 'var(--color-bg)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', borderRadius: 4, width: `${maxClassDue > 0 ? (info.due / maxClassDue) * 100 : 0}%`, background: 'linear-gradient(90deg, #2563EB, #60A5FA)', transition: 'width 0.6s ease' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -170,6 +257,9 @@ function OverviewTab() {
 
 // ─── Fee Structure Tab ──────────────────────────────────────
 function FeeStructureTab() {
+  const { canPerform } = useAuth();
+  const canEdit = canPerform('finance', 'edit');
+  const canCreate = canPerform('finance', 'create');
   const [rates, setRates] = useState([]);
   const [feeItems, setFeeItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -241,10 +331,12 @@ function FeeStructureTab() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M2 12h20" /></svg>
             {seeding ? 'Seeding...' : 'Seed Demo Data'}
           </button>
+          {canCreate && (
           <button onClick={() => setEditing({ level: '', termId: '', feeItemId: '', amount: '' })} style={addBtnStyle}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
             Add Rate
           </button>
+        )}
         </div>
       </div>
 
@@ -284,7 +376,7 @@ function FeeStructureTab() {
                       <Td><span style={{ color: 'var(--color-text)' }}>{r.item_name}</span></Td>
                       <Td style={{ textAlign: 'right' }}><span style={{ fontWeight: 600, color: 'var(--color-text-heading)' }}>{formatCurrency(r.amount)}</span></Td>
                       <Td style={{ textAlign: 'right' }}>
-                        <button onClick={() => setEditing({ level: r.level, termId: r.term_id, feeItemId: r.fee_item_id, amount: r.amount })} style={editBtnStyle}>Edit</button>
+                        {canEdit && <button onClick={() => setEditing({ level: r.level, termId: r.term_id, feeItemId: r.fee_item_id, amount: r.amount })} style={editBtnStyle}>Edit</button>}
                       </Td>
                     </tr>
                   ))}
@@ -382,8 +474,8 @@ function FeeRateForm({ rate, feeItems = [], onSave, onCancel, saving }) {
         <Field label="Level" required>
           <select value={form.level} onChange={handleChange('level')} onBlur={handleBlur('level')} style={fieldErrorStyle('level')}>
             <option value="">Select level...</option>
-            <option value="S1">S1</option><option value="S2">S2</option><option value="S3">S3</option>
-            <option value="S4">S4</option><option value="S5">S5</option><option value="S6">S6</option>
+            <option value="L2">L2</option><option value="L3">L3</option><option value="L4">L4</option>
+            <option value="L5">L5</option>
           </select>
           {touched.level && errors.level && <div style={{ color: '#DC2626', fontSize: '0.78rem', marginTop: 4 }}>{errors.level}</div>}
         </Field>
@@ -418,30 +510,81 @@ function FeeRateForm({ rate, feeItems = [], onSave, onCancel, saving }) {
   );
 }
 
+// ─── Invoice Row Component ──────────────────────────────────
+function InvoiceRow({ inv, setViewingInvoice, setShowPayment }) {
+  return (
+    <tr style={{ borderBottom: '1px solid var(--color-border-light)', transition: 'background 0.15s' }}
+      onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-bg)'}
+      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+    >
+      <Td><span style={{ fontFamily: 'monospace', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-heading)' }}>#{inv.invoice_id}</span></Td>
+      <Td><span style={{ fontWeight: 500, color: 'var(--color-text-heading)' }}>{inv.first_name} {inv.last_name}</span></Td>
+      <Td><span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-text-light)' }}>{inv.admission_no}</span></Td>
+      <Td>{inv.class_name ? (
+        <span style={{ display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 700, color: '#fff', background: inv.level === 'L5' ? '#7C3AED' : inv.level === 'L4' ? '#2563EB' : inv.level === 'L3' ? '#059669' : inv.level === 'L2' ? '#D97706' : '#64748B' }}>{inv.class_name}</span>
+      ) : <span style={{ color: 'var(--color-text-light)', fontSize: '0.8rem' }}>—</span>}</Td>
+      <Td><span style={{ fontWeight: 600, color: 'var(--color-text-heading)' }}>{formatCurrency(inv.amount_due)}</span></Td>
+      <Td>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 600, color: '#fff', background: statusColors[inv.status] || '#64748B' }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.6)' }} />
+          {statusLabels[inv.status] || inv.status}
+        </span>
+      </Td>
+      <Td><span style={{ color: 'var(--color-text-light)' }}>{formatDate(inv.invoice_date)}</span></Td>
+      <Td style={{ textAlign: 'right' }}>
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+          <button onClick={() => setViewingInvoice(inv)} style={viewBtnStyle}>View</button>
+          {(inv.status === 'open' || inv.status === 'partially_paid') && (
+            <button onClick={() => setShowPayment(inv)} style={payBtnStyle}>Pay</button>
+          )}
+        </div>
+      </Td>
+    </tr>
+  );
+}
+
 // ─── Invoices Tab ───────────────────────────────────────────
 function InvoicesTab() {
   const [invoices, setInvoices] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
+  const [yearFilter, setYearFilter] = useState('');
+  const [termFilter, setTermFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [groupByClass, setGroupByClass] = useState(false);
+  const [academicYears, setAcademicYears] = useState([]);
+  const [terms, setTerms] = useState([]);
   const [showGenerate, setShowGenerate] = useState(false);
   const [showPayment, setShowPayment] = useState(null);
   const [viewingInvoice, setViewingInvoice] = useState(null);
 
+  useEffect(() => {
+    listAcademicYears().then((years) => {
+      setAcademicYears(years);
+      const current = years.find((y) => y.is_current);
+      if (current) setYearFilter(String(current.year_id));
+    }).catch(() => {});
+    listTerms().then(setTerms).catch(() => {});
+  }, []);
+
   const fetchInvoices = useCallback(async (page = 1) => {
     setLoading(true);
     try {
-      const params = { page, limit: 20 };
+      const params = { page, limit: 100 };
       if (statusFilter) params.status = statusFilter;
+      if (yearFilter) params.academicYearId = yearFilter;
+      if (termFilter) params.termId = termFilter;
+      if (searchQuery) params.search = searchQuery;
       const result = await listInvoices(params);
-      setInvoices(result.data || []);
-      setPagination(result.pagination || { page, limit: 20, total: 0, totalPages: 0 });
+      setInvoices(Array.isArray(result) ? result : (result?.data || []));
+      setPagination(result?.pagination || { page, limit: 100, total: 0, totalPages: 0 });
     } catch (err) {
       toast.error('Failed to load invoices');
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, yearFilter, termFilter, searchQuery]);
 
   useEffect(() => { fetchInvoices(1); }, [fetchInvoices]);
 
@@ -454,6 +597,33 @@ function InvoicesTab() {
         <button onClick={() => setShowGenerate(true)} style={addBtnStyle}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
           Generate Invoices
+        </button>
+      </div>
+
+      {/* Filters Row */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-text-heading)', whiteSpace: 'nowrap' }}>Year:</label>
+        <select value={yearFilter} onChange={(e) => { setYearFilter(e.target.value); setTermFilter(''); }} style={{ ...inputStyle, width: 'auto', minWidth: 140 }}>
+          <option value="">All Years</option>
+          {academicYears.map((y) => (
+            <option key={y.year_id} value={y.year_id}>{y.year_label} {y.is_current ? '(Current)' : ''}</option>
+          ))}
+        </select>
+        <select value={termFilter} onChange={(e) => setTermFilter(e.target.value)} style={{ ...inputStyle, width: 'auto', minWidth: 130 }}>
+          <option value="">All Terms</option>
+          {terms
+            .filter((t) => !yearFilter || String(t.academic_year_id) === String(yearFilter))
+            .map((t) => (
+              <option key={t.term_id} value={t.term_id}>{t.term_name}</option>
+            ))}
+        </select>
+        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-light)" strokeWidth="2" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+          <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search name, admission, or class..." style={{ ...inputStyle, paddingLeft: 32 }} />
+        </div>
+        <button onClick={() => setGroupByClass(!groupByClass)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: '0.82rem', fontWeight: 500, color: groupByClass ? '#fff' : 'var(--color-text)', background: groupByClass ? 'var(--color-primary)' : '#fff', border: groupByClass ? 'none' : '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', minHeight: 'auto', whiteSpace: 'nowrap' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
+          {groupByClass ? 'Ungroup' : 'Group by Class'}
         </button>
       </div>
 
@@ -485,6 +655,7 @@ function InvoicesTab() {
                 <Th>Invoice #</Th>
                 <Th>Student</Th>
                 <Th>Admission</Th>
+                <Th>Class</Th>
                 <Th>Amount Due</Th>
                 <Th>Status</Th>
                 <Th>Date</Th>
@@ -494,42 +665,50 @@ function InvoicesTab() {
             <tbody>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>{Array.from({ length: 7 }).map((_, j) => (
+                  <tr key={i}>{Array.from({ length: 8 }).map((_, j) => (
                     <td key={j} style={{ padding: '14px 16px' }}><div style={{ height: 14, background: 'var(--color-border)', borderRadius: 4, width: '70%', animation: 'pulse 1.5s ease-in-out infinite' }} /></td>
                   ))}</tr>
                 ))
               ) : invoices.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: '48px 16px', textAlign: 'center', color: 'var(--color-text-light)' }}>No invoices found</td></tr>
+                <tr><td colSpan={8} style={{ padding: '48px 16px', textAlign: 'center', color: 'var(--color-text-light)' }}>No invoices found</td></tr>
+              ) : groupByClass ? (
+                // Grouped view
+                Object.entries(
+                  invoices.reduce((acc, inv) => {
+                    const key = inv.class_name || 'Unassigned';
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(inv);
+                    return acc;
+                  }, {})
+                ).sort(([a], [b]) => a.localeCompare(b)).map(([className, classInvoices]) => {
+                  const totalDue = classInvoices.reduce((sum, inv) => sum + Number(inv.amount_due || 0), 0);
+                  const paidCount = classInvoices.filter((inv) => inv.status === 'paid').length;
+                  return (
+                    <React.Fragment key={className}>
+                      <tr style={{ background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border-light)' }}>
+                        <td colSpan={8} style={{ padding: '10px 16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 10px', borderRadius: 6, fontSize: '0.75rem', fontWeight: 700, color: '#fff', background: '#2563EB' }}>{className}</span>
+                              <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-text-heading)' }}>{classInvoices.length} student(s)</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: 16, fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
+                              <span>Total: <strong style={{ color: 'var(--color-text-heading)' }}>{formatCurrency(totalDue)}</strong></span>
+                              <span>Paid: <strong style={{ color: '#059669' }}>{paidCount}/{classInvoices.length}</strong></span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                      {classInvoices.map((inv) => (
+                        <InvoiceRow key={inv.invoice_id} inv={inv} setViewingInvoice={setViewingInvoice} setShowPayment={setShowPayment} />
+                      ))}
+                    </React.Fragment>
+                  );
+                })
               ) : (
+                // Flat view
                 invoices.map((inv) => (
-                  <tr key={inv.invoice_id} style={{ borderBottom: '1px solid var(--color-border-light)', transition: 'background 0.15s' }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-bg)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <Td><span style={{ fontFamily: 'monospace', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-heading)' }}>#{inv.invoice_id}</span></Td>
-                    <Td><span style={{ fontWeight: 500, color: 'var(--color-text-heading)' }}>{inv.first_name} {inv.last_name}</span></Td>
-                    <Td><span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-text-light)' }}>{inv.admission_no}</span></Td>
-                    <Td><span style={{ fontWeight: 600, color: 'var(--color-text-heading)' }}>{formatCurrency(inv.amount_due)}</span></Td>
-                    <Td>
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        padding: '3px 10px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 600,
-                        color: '#fff', background: statusColors[inv.status] || '#64748B',
-                      }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.6)' }} />
-                        {statusLabels[inv.status] || inv.status}
-                      </span>
-                    </Td>
-                    <Td><span style={{ color: 'var(--color-text-light)' }}>{formatDate(inv.invoice_date)}</span></Td>
-                    <Td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button onClick={() => setViewingInvoice(inv)} style={viewBtnStyle}>View</button>
-                        {(inv.status === 'open' || inv.status === 'partially_paid') && (
-                          <button onClick={() => setShowPayment(inv)} style={payBtnStyle}>Pay</button>
-                        )}
-                      </div>
-                    </Td>
-                  </tr>
+                  <InvoiceRow key={inv.invoice_id} inv={inv} setViewingInvoice={setViewingInvoice} setShowPayment={setShowPayment} />
                 ))
               )}
             </tbody>
@@ -704,6 +883,10 @@ function InvoiceDetailView({ invoice, onClose }) {
 
 // ─── Sponsorships Tab ───────────────────────────────────────
 function SponsorshipsTab() {
+  const { canPerform } = useAuth();
+  const canCreate = canPerform('finance', 'create');
+  const canEdit = canPerform('finance', 'edit');
+  const canDelete = canPerform('finance', 'delete');
   const [sponsorships, setSponsorships] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -739,10 +922,12 @@ function SponsorshipsTab() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: 'var(--color-text-heading)' }}>Sponsorships</h3>
-        <button onClick={() => setShowForm(true)} style={addBtnStyle}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-          Add Sponsorship
-        </button>
+        {canCreate && (
+          <button onClick={() => setShowForm(true)} style={addBtnStyle}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            Add Sponsorship
+          </button>
+        )}
       </div>
 
       <div style={{ background: '#fff', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-light)', overflow: 'hidden' }}>
@@ -781,11 +966,11 @@ function SponsorshipsTab() {
                     <Td><span style={{ color: 'var(--color-text-light)', fontSize: '0.82rem' }}>{sp.notes || '—'}</span></Td>
                     <Td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button onClick={() => setEditing(sp)} style={{ padding: '4px 12px', fontSize: '0.78rem', fontWeight: 500, color: '#2563EB', background: 'rgba(37,99,235,0.08)', border: 'none', borderRadius: 6, cursor: 'pointer', minHeight: 'auto' }}>Edit</button>
-                        <button onClick={() => setDeleting(sp)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 12px', fontSize: '0.78rem', fontWeight: 600, color: '#DC2626', background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 6, cursor: 'pointer', minHeight: 'auto' }}>
+                        {canEdit && <button onClick={() => setEditing(sp)} style={{ padding: '4px 12px', fontSize: '0.78rem', fontWeight: 500, color: '#2563EB', background: 'rgba(37,99,235,0.08)', border: 'none', borderRadius: 6, cursor: 'pointer', minHeight: 'auto' }}>Edit</button>}
+                        {canDelete && <button onClick={() => setDeleting(sp)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 12px', fontSize: '0.78rem', fontWeight: 600, color: '#DC2626', background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 6, cursor: 'pointer', minHeight: 'auto' }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /></svg>
                           Delete
-                        </button>
+                        </button>}
                       </div>
                     </Td>
                   </tr>
@@ -880,7 +1065,7 @@ function SponsorshipForm({ sponsorship, onClose, onDone }) {
                         {s.gender && <span style={{ fontSize: '0.75rem', color: 'var(--color-text-light)' }}>({s.gender})</span>}
                       </div>
                     </div>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', borderRadius: 6, fontSize: '0.7rem', fontWeight: 700, color: '#fff', background: s.level === 'S6' ? '#7C3AED' : s.level === 'S5' ? '#2563EB' : s.level === 'S4' ? '#059669' : s.level === 'S3' ? '#D97706' : s.level === 'S2' ? '#DC2626' : '#64748B' }}>{s.level || '—'}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '2px 8px', borderRadius: 6, fontSize: '0.7rem', fontWeight: 700, color: '#fff', background: s.level === 'L5' ? '#7C3AED' : s.level === 'L4' ? '#2563EB' : s.level === 'L3' ? '#059669' : s.level === 'L2' ? '#D97706' : '#64748B' }}>{s.level || '—'}</span>
                   </div>
                 ))}
               </div>

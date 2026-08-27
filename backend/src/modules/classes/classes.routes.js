@@ -8,11 +8,11 @@ const { createClassSchema, updateClassSchema } = require('./classes.validation')
 
 router.use(authMiddleware);
 
-router.get('/', yearContextMiddleware, controller.list);
-router.get('/:id', controller.getById);
-router.post('/', yearContextMiddleware, rbacMiddleware('classes'), validate(createClassSchema), controller.create);
-router.put('/:id', rbacMiddleware('classes'), validate(updateClassSchema), controller.update);
-router.delete('/:id', rbacMiddleware('classes'), controller.remove);
-router.get('/:id/students', yearContextMiddleware, controller.listStudents);
+router.get('/', yearContextMiddleware, rbacMiddleware('classes', ['canView']), controller.list);
+router.get('/:id', rbacMiddleware('classes', ['canView']), controller.getById);
+router.post('/', yearContextMiddleware, rbacMiddleware('classes', ['canCreate']), validate(createClassSchema), controller.create);
+router.put('/:id', rbacMiddleware('classes', ['canEdit']), validate(updateClassSchema), controller.update);
+router.delete('/:id', rbacMiddleware('classes', ['canDelete']), controller.remove);
+router.get('/:id/students', yearContextMiddleware, rbacMiddleware('classes', ['canView']), controller.listStudents);
 
 module.exports = router;

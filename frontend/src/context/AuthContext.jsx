@@ -104,6 +104,24 @@ export function AuthProvider({ children }) {
     [user]
   );
 
+  // CRUD-level permission check: canPerform('students', 'create')
+  const canPerform = useCallback(
+    (moduleKey, action) => {
+      if (!user) return false;
+      if (user.role === 'Administrator') return true; // Admin can do everything
+      const perms = user.modulePermissions?.[moduleKey];
+      if (!perms) return false;
+      switch (action) {
+        case 'view': return perms.canView;
+        case 'create': return perms.canCreate;
+        case 'edit': return perms.canEdit;
+        case 'delete': return perms.canDelete;
+        default: return false;
+      }
+    },
+    [user]
+  );
+
   const value = {
     user,
     loading,
@@ -114,6 +132,7 @@ export function AuthProvider({ children }) {
     verifyOtpCode,
     logout,
     hasPermission,
+    canPerform,
     clearError: () => setError(null),
   };
 

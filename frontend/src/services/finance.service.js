@@ -41,6 +41,14 @@ export const deleteSponsorship = (id) =>
 export const searchStudents = (query) =>
   api.get('/finance/search-student', { params: { q: query } }).then((r) => r.data.data || []);
 
+// ─── Academic Years (for dropdown) ───
+export const listAcademicYears = () =>
+  api.get('/finance/academic-years').then((r) => r.data.data || []);
+
+// ─── Terms (for dropdown) ───
+export const listTerms = () =>
+  api.get('/finance/terms').then((r) => r.data.data || []);
+
 // ─── Seed Finance Demo Data ───
 export const seedFinanceData = () =>
   api.post('/finance/seed').then((r) => r.data);

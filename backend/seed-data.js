@@ -58,20 +58,18 @@ async function seed() {
     [yearId, 'Term 1']
   );
 
-  // ─── 3. Classes ──────────────────────────────────────────
+  // ─── 3. Classes (INTANGO TSS programs) ────────────────────
   const classList = [
-    { name: 'S1 MEC',          level: 'S1', trade: 'MEC' },
-    { name: 'S1 LME',          level: 'S1', trade: 'LME' },
-    { name: 'S2 MEC',          level: 'S2', trade: 'MEC' },
-    { name: 'S2 LME',          level: 'S2', trade: 'LME' },
-    { name: 'S3 MEC',          level: 'S3', trade: 'MEC' },
-    { name: 'S3 LME',          level: 'S3', trade: 'LME' },
-    { name: 'S4 MEC',          level: 'S4', trade: 'MEC' },
-    { name: 'S4 LME',          level: 'S4', trade: 'LME' },
-    { name: 'S5 MEC',          level: 'S5', trade: 'MEC' },
-    { name: 'S5 LME',          level: 'S5', trade: 'LME' },
-    { name: 'S6 MEC',          level: 'S6', trade: 'MEC' },
-    { name: 'S6 LME',          level: 'S6', trade: 'LME' },
+    // Software Development (3-year certificate, L3-L5)
+    { name: 'L3 Software Dev',  level: 'L3', trade: 'Software Development' },
+    { name: 'L4 Software Dev',  level: 'L4', trade: 'Software Development' },
+    { name: 'L5 Software Dev',  level: 'L5', trade: 'Software Development' },
+    // Computer Application (short course, L2)
+    { name: 'L2 Computer App',  level: 'L2', trade: 'Computer Application' },
+    // Digital Skills (short course)
+    { name: 'L2 Digital Skills', level: 'L2', trade: 'Digital Skills' },
+    // Domestic Electricity (short course)
+    { name: 'L2 Domestic Elec', level: 'L2', trade: 'Domestic Electricity' },
   ];
 
   let firstClassId;

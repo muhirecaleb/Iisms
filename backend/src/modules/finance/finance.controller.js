@@ -30,7 +30,7 @@ exports.upsertFeeRate = async (req, res, next) => {
 
 exports.listInvoices = async (req, res, next) => {
   try {
-    const result = await financeService.listInvoices({ ...req.query });
+    const result = await financeService.listInvoices({ ...req.query, academicYearId: req.query.academicYearId || null });
     res.json({ success: true, ...result });
   } catch (error) { next(error); }
 };

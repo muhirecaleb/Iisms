@@ -25,12 +25,12 @@ const upload = multer({
 
 router.use(authMiddleware);
 
-router.get('/', yearContextMiddleware, rbacMiddleware('staff'), controller.list);
-router.get('/:id', rbacMiddleware('staff'), controller.getById);
-router.post('/', rbacMiddleware('staff'), validate(createSchema), controller.create);
-router.put('/:id', rbacMiddleware('staff'), validate(updateSchema), controller.update);
-router.delete('/:id', rbacMiddleware('staff'), controller.delete);
-router.post('/:id/photo', rbacMiddleware('staff'), upload.single('photo'), controller.uploadPhoto);
-router.post('/copy-forward', rbacMiddleware('staff'), validate(copyForwardSchema), controller.copyForward);
+router.get('/', yearContextMiddleware, rbacMiddleware('staff', ['canView']), controller.list);
+router.get('/:id', rbacMiddleware('staff', ['canView']), controller.getById);
+router.post('/', rbacMiddleware('staff', ['canCreate']), validate(createSchema), controller.create);
+router.put('/:id', rbacMiddleware('staff', ['canEdit']), validate(updateSchema), controller.update);
+router.delete('/:id', rbacMiddleware('staff', ['canDelete']), controller.delete);
+router.post('/:id/photo', rbacMiddleware('staff', ['canEdit']), upload.single('photo'), controller.uploadPhoto);
+router.post('/copy-forward', rbacMiddleware('staff', ['canCreate']), validate(copyForwardSchema), controller.copyForward);
 
 module.exports = router;

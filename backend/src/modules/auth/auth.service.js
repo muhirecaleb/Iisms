@@ -289,9 +289,23 @@ class AuthService {
     }
 
     const [perms] = await db.query(
-      "SELECT module_key FROM role_permissions WHERE role_id = ? AND can_view = TRUE",
+      "SELECT module_key, can_view, can_create, can_edit, can_delete FROM role_permissions WHERE role_id = ?",
       [user.role_id],
     );
+
+    // Build detailed module permissions map for CRUD-level checks
+    const modulePermissions = {};
+    perms.forEach((p) => {
+      modulePermissions[p.module_key] = {
+        canView: !!p.can_view,
+        canCreate: !!p.can_create,
+        canEdit: !!p.can_edit,
+        canDelete: !!p.can_delete,
+      };
+    });
+
+    // Also keep backward-compatible permissions array (modules where can_view = TRUE)
+    const viewableModules = perms.filter((p) => p.can_view).map((p) => p.module_key);
 
     return {
       userId: user.user_id,
@@ -302,7 +316,8 @@ class AuthService {
       role: user.role_name,
       lastLoginAt: user.last_login_at,
       avatarUrl,
-      permissions: perms.map((p) => p.module_key),
+      permissions: viewableModules,
+      modulePermissions,
     };
   }
 
