@@ -29,7 +29,7 @@ const categoryColors = {
 };
 
 // ─── Modal ──────────────────────────────────────────────────
-function Modal({ title, children, onClose }) {
+function Modal({ title, children, onClose, wide }) {
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleKey);
@@ -49,7 +49,7 @@ function Modal({ title, children, onClose }) {
       <div
         style={{
           background: '#fff', borderRadius: 'var(--radius-md)',
-          width: '100%', maxWidth: 600, maxHeight: '85vh',
+          width: '100%', maxWidth: wide ? 680 : 600, maxHeight: '85vh',
           overflow: 'hidden', display: 'flex', flexDirection: 'column',
           boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
         }}
@@ -100,8 +100,34 @@ function SectionDivider({ label }) {
   );
 }
 
+// ─── Validation ─────────────────────────────────────────────
+function validateForm(form, isEdit) {
+  const errors = {};
+
+  if (!form.fullName?.trim()) errors.fullName = 'Full name is required';
+  else if (form.fullName.trim().length < 2) errors.fullName = 'Full name must be at least 2 characters';
+
+  if (!form.dateOfBirth) errors.dateOfBirth = 'Date of birth is required';
+
+  if (!isEdit) {
+    if (!form.staffCategory) errors.staffCategory = 'Please select a staff category';
+    if (!form.contractType) errors.contractType = 'Please select a contract type';
+  }
+
+  if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    errors.email = 'Please enter a valid email address';
+  }
+
+  if (form.phoneNumber && !/^[0-9+\-\s()]{7,20}$/.test(form.phoneNumber)) {
+    errors.phoneNumber = 'Please enter a valid phone number';
+  }
+
+  return errors;
+}
+
 // ─── Staff Form ─────────────────────────────────────────────
 function StaffForm({ staff, onSave, onCancel, saving }) {
+  const isEdit = !!staff;
   const [form, setForm] = useState({
     fullName: '',
     gender: 'M',
@@ -134,20 +160,49 @@ function StaffForm({ staff, onSave, onCancel, saving }) {
     ...(staff || {}),
   });
 
-  const handleChange = (field) => (e) => setForm((p) => ({ ...p, [field]: e.target.value }));
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+
+  const handleChange = (field) => (e) => {
+    setForm((p) => ({ ...p, [field]: e.target.value }));
+    if (errors[field]) {
+      setErrors((prev) => { const next = { ...prev }; delete next[field]; return next; });
+    }
+  };
+
+  const handleBlur = (field) => () => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    const fieldErrors = validateForm(form, isEdit);
+    if (fieldErrors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: fieldErrors[field] }));
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.fullName?.trim()) { toast.error('Full name is required'); return; }
+    const fieldErrors = validateForm(form, isEdit);
+    setErrors(fieldErrors);
+    setTouched({ fullName: true, dateOfBirth: true, staffCategory: true, contractType: true, email: true, phoneNumber: true });
+
+    if (Object.keys(fieldErrors).length > 0) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
     onSave(form);
   };
+
+  const getFieldStyle = (field) => ({
+    ...inputStyle,
+    borderColor: (touched[field] && errors[field]) ? 'var(--color-error)' : inputStyle.border,
+  });
 
   return (
     <form onSubmit={handleSubmit}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* Personal Information */}
         <SectionDivider label="Personal Information" />
-        <Field label="Full Name *" required>
-          <input type="text" value={form.fullName} onChange={handleChange('fullName')} style={inputStyle} placeholder="John Doe" />
+        <Field label="Full Name" required error={touched.fullName && errors.fullName}>
+          <input type="text" value={form.fullName} onChange={handleChange('fullName')} onBlur={handleBlur('fullName')} style={getFieldStyle('fullName')} placeholder="John Doe" />
         </Field>
         <Field label="Gender">
           <select value={form.gender} onChange={handleChange('gender')} style={inputStyle}>
@@ -155,8 +210,8 @@ function StaffForm({ staff, onSave, onCancel, saving }) {
             <option value="F">Female</option>
           </select>
         </Field>
-        <Field label="Date of Birth">
-          <input type="date" value={form.dateOfBirth || ''} onChange={handleChange('dateOfBirth')} style={inputStyle} />
+        <Field label="Date of Birth" required error={touched.dateOfBirth && errors.dateOfBirth}>
+          <input type="date" value={form.dateOfBirth || ''} onChange={handleChange('dateOfBirth')} onBlur={handleBlur('dateOfBirth')} style={getFieldStyle('dateOfBirth')} />
         </Field>
         <Field label="Marital Status">
           <select value={form.maritalStatus} onChange={handleChange('maritalStatus')} style={inputStyle}>
@@ -176,17 +231,17 @@ function StaffForm({ staff, onSave, onCancel, saving }) {
 
         {/* Contact */}
         <SectionDivider label="Contact" />
-        <Field label="Phone">
-          <input type="tel" value={form.phoneNumber || ''} onChange={handleChange('phoneNumber')} style={inputStyle} placeholder="+250 78X XXX XXX" />
+        <Field label="Phone" error={touched.phoneNumber && errors.phoneNumber}>
+          <input type="tel" value={form.phoneNumber || ''} onChange={handleChange('phoneNumber')} onBlur={handleBlur('phoneNumber')} style={getFieldStyle('phoneNumber')} placeholder="+250 78X XXX XXX" />
         </Field>
-        <Field label="Email">
-          <input type="email" value={form.email || ''} onChange={handleChange('email')} style={inputStyle} placeholder="name@school.rw" />
+        <Field label="Email" error={touched.email && errors.email}>
+          <input type="email" value={form.email || ''} onChange={handleChange('email')} onBlur={handleBlur('email')} style={getFieldStyle('email')} placeholder="name@school.rw" />
         </Field>
 
         {/* Employment */}
         <SectionDivider label="Employment Details" />
-        <Field label="Staff Category">
-          <select value={form.staffCategory} onChange={handleChange('staffCategory')} style={inputStyle}>
+        <Field label="Staff Category" required error={touched.staffCategory && errors.staffCategory}>
+          <select value={form.staffCategory} onChange={handleChange('staffCategory')} onBlur={handleBlur('staffCategory')} style={getFieldStyle('staffCategory')}>
             <option value="">Select...</option>
             <option value="Teaching">Teaching</option>
             <option value="Administrative">Administrative</option>
@@ -196,8 +251,8 @@ function StaffForm({ staff, onSave, onCancel, saving }) {
         <Field label="Staff Position">
           <input type="text" value={form.staffPosition || ''} onChange={handleChange('staffPosition')} style={inputStyle} placeholder="e.g. Head Teacher" />
         </Field>
-        <Field label="Contract Type">
-          <select value={form.contractType} onChange={handleChange('contractType')} style={inputStyle}>
+        <Field label="Contract Type" required error={touched.contractType && errors.contractType}>
+          <select value={form.contractType} onChange={handleChange('contractType')} onBlur={handleBlur('contractType')} style={getFieldStyle('contractType')}>
             <option value="">Select...</option>
             <option value="Permanent">Permanent</option>
             <option value="Fixed-term">Fixed-term</option>
@@ -211,7 +266,7 @@ function StaffForm({ staff, onSave, onCancel, saving }) {
         <Field label="Employment Date (Education)">
           <input type="date" value={form.employmentDateEducation || ''} onChange={handleChange('employmentDateEducation')} style={inputStyle} />
         </Field>
-        {staff && (
+        {isEdit && (
           <Field label="Status">
             <select value={form.status} onChange={handleChange('status')} style={inputStyle}>
               <option value="active">Active</option>
@@ -282,19 +337,24 @@ function StaffForm({ staff, onSave, onCancel, saving }) {
       </div>
       <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border-light)' }}>
         <button type="button" onClick={onCancel} disabled={saving} style={{ padding: '9px 22px', fontSize: '0.85rem', fontWeight: 500, color: 'var(--color-text)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', minHeight: 'auto' }}>Cancel</button>
-        <button type="submit" disabled={saving} style={{ padding: '9px 22px', fontSize: '0.85rem', fontWeight: 600, color: '#fff', background: 'var(--color-primary)', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', minHeight: 'auto', opacity: saving ? 0.7 : 1 }}>{saving ? 'Saving...' : staff ? 'Update Staff' : 'Add Staff'}</button>
+        <button type="submit" disabled={saving} style={{ padding: '9px 22px', fontSize: '0.85rem', fontWeight: 600, color: '#fff', background: 'var(--color-primary)', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', minHeight: 'auto', opacity: saving ? 0.7 : 1 }}>{saving ? 'Saving...' : isEdit ? 'Update Staff' : 'Add Staff'}</button>
       </div>
     </form>
   );
 }
 
-function Field({ label, required, children }) {
+function Field({ label, required, error, children }) {
   return (
     <div>
       <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-heading)', marginBottom: 6 }}>
         {label} {required && <span style={{ color: 'var(--color-error)' }}>*</span>}
       </label>
       {children}
+      {error && (
+        <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--color-error)', fontWeight: 500 }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -307,6 +367,113 @@ const inputStyle = {
   transition: 'border-color 0.2s', boxSizing: 'border-box',
 };
 
+// ─── Staff Detail View ──────────────────────────────────────
+function StaffDetailView({ staff, onClose }) {
+  const DetailRow = ({ label, value }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--color-border-light)' }}>
+      <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)', fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: '0.85rem', color: 'var(--color-text-heading)', fontWeight: 500, textAlign: 'right' }}>{value || '—'}</span>
+    </div>
+  );
+
+  const SectionHeader = ({ label }) => (
+    <div style={{ marginTop: 16, marginBottom: 8 }}>
+      <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--color-primary)' }}>{label}</span>
+    </div>
+  );
+
+  const name = staff.full_name || '—';
+  const initials = name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+
+  return (
+    <Modal title="Staff Details" onClose={onClose} wide>
+      <div style={{ maxWidth: 560 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: '50%',
+            background: staff.gender === 'F' ? '#DC2626' : '#7C3AED',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontWeight: 700, fontSize: '1.25rem', flexShrink: 0,
+          }}>
+            {initials}
+          </div>
+          <div>
+            <h3 style={{ margin: '0 0 4px', fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-text-heading)' }}>
+              {name}
+            </h3>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
+                {staff.staff_no || '—'}
+              </span>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '2px 8px', borderRadius: 12,
+                fontSize: '0.7rem', fontWeight: 600, color: '#fff',
+                background: statusColors[staff.status] || '#64748B',
+              }}>
+                {statusLabels[staff.status] || staff.status}
+              </span>
+              {staff.staff_category && (
+                <span style={{
+                  fontSize: '0.7rem', fontWeight: 600,
+                  color: categoryColors[staff.staff_category] || '#64748B',
+                }}>
+                  {staff.staff_category}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Personal Info */}
+        <SectionHeader label="Personal Information" />
+        <DetailRow label="Gender" value={staff.gender === 'F' ? 'Female' : 'Male'} />
+        <DetailRow label="Date of Birth" value={formatDate(staff.date_of_birth)} />
+        <DetailRow label="Marital Status" value={staff.marital_status} />
+        <DetailRow label="Nationality" value={staff.nationality} />
+        <DetailRow label="ID/Passport No" value={staff.id_passport_no} />
+
+        {/* Contact */}
+        <SectionHeader label="Contact" />
+        <DetailRow label="Phone" value={staff.phone_number} />
+        <DetailRow label="Email" value={staff.email} />
+
+        {/* Employment */}
+        <SectionHeader label="Employment Details" />
+        <DetailRow label="Category" value={staff.staff_category} />
+        <DetailRow label="Position" value={staff.staff_position} />
+        <DetailRow label="Contract Type" value={staff.contract_type} />
+        <DetailRow label="Employment Date (School)" value={formatDate(staff.employment_date_school)} />
+        <DetailRow label="Employment Date (Education)" value={formatDate(staff.employment_date_education)} />
+
+        {/* Qualifications */}
+        <SectionHeader label="Qualifications" />
+        <DetailRow label="Highest Qualification" value={staff.highest_qualification} />
+        <DetailRow label="Field of Study" value={staff.field_of_study} />
+        <DetailRow label="Domain" value={staff.domain} />
+        <DetailRow label="Sub Domain" value={staff.sub_domain} />
+        <DetailRow label="Graduation Date" value={formatDate(staff.graduation_date)} />
+
+        {/* Financial */}
+        <SectionHeader label="Financial" />
+        <DetailRow label="Bank" value={staff.staff_bank} />
+        <DetailRow label="Account Number" value={staff.account_number} />
+        <DetailRow label="RSSB Number" value={staff.staff_rssb_number} />
+
+        {/* Address */}
+        <SectionHeader label="Address" />
+        <DetailRow label="Province" value={staff.province} />
+        <DetailRow label="District" value={staff.district} />
+        <DetailRow label="Sector" value={staff.sector} />
+        <DetailRow label="Cell" value={staff.cell} />
+        <DetailRow label="Village" value={staff.village} />
+        <DetailRow label="Detail Address" value={staff.detail_address} />
+      </div>
+    </Modal>
+  );
+}
+
 // ─── Main Page ──────────────────────────────────────────────
 export default function StaffPage() {
   const [staff, setStaff] = useState([]);
@@ -316,6 +483,7 @@ export default function StaffPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
+  const [viewingStaff, setViewingStaff] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
 
@@ -422,7 +590,7 @@ export default function StaffPage() {
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>{Array.from({ length: 9 }).map((_, j) => (
                     <td key={j} style={{ padding: '14px 16px' }}>
-                      <div style={{ height: 14, background: 'var(--color-border)', borderRadius: 4, width: j === 1 ? '60%' : j === 6 ? '30%' : '80%', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                      <div style={{ height: 14, background: 'var(--color-border)', borderRadius: 4, width: j === 1 ? '60%' : j === 8 ? '30%' : '80%', animation: 'pulse 1.5s ease-in-out infinite' }} />
                     </td>
                   ))}</tr>
                 ))
@@ -453,6 +621,11 @@ export default function StaffPage() {
                     </Td>
                     <Td>
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <ActionBtn title="View" onClick={() => setViewingStaff(s)} color="#059669">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </ActionBtn>
                         <ActionBtn title="Edit" onClick={() => setEditingStaff(s)} color="#2563EB">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                         </ActionBtn>
@@ -536,6 +709,14 @@ export default function StaffPage() {
           onConfirm={handleDelete}
           onCancel={() => setDeleting(null)}
           loading={saving}
+        />
+      )}
+
+      {/* Staff Detail View */}
+      {viewingStaff && (
+        <StaffDetailView
+          staff={viewingStaff}
+          onClose={() => setViewingStaff(null)}
         />
       )}
 

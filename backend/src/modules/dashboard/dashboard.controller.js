@@ -7,10 +7,10 @@ exports.stats = async (req, res, next) => {
 
     // Students KPI
     const [studentStats] = await db.query(
-      `SELECT COUNT(*) as total,
-        SUM(CASE WHEN s.status='active' THEN 1 ELSE 0 END) as active,
-        SUM(CASE WHEN s.gender='M' THEN 1 ELSE 0 END) as male,
-        SUM(CASE WHEN s.gender='F' THEN 1 ELSE 0 END) as female
+      `SELECT CAST(COUNT(*) AS UNSIGNED) as total,
+        CAST(SUM(CASE WHEN s.status='active' THEN 1 ELSE 0 END) AS UNSIGNED) as active,
+        CAST(SUM(CASE WHEN s.gender='M' THEN 1 ELSE 0 END) AS UNSIGNED) as male,
+        CAST(SUM(CASE WHEN s.gender='F' THEN 1 ELSE 0 END) AS UNSIGNED) as female
        FROM students s
        JOIN student_academic_records sar ON s.student_id = sar.student_id
        WHERE sar.academic_year_id = ? AND s.deleted_at IS NULL`,
@@ -19,8 +19,8 @@ exports.stats = async (req, res, next) => {
 
     // Staff KPI
     const [staffStats] = await db.query(
-      `SELECT COUNT(*) as total,
-        SUM(CASE WHEN staff_category='Teaching' THEN 1 ELSE 0 END) as teaching
+      `SELECT CAST(COUNT(*) AS UNSIGNED) as total,
+        CAST(SUM(CASE WHEN staff_category='Teaching' THEN 1 ELSE 0 END) AS UNSIGNED) as teaching
        FROM staff s
        JOIN staff_academic_years say ON s.staff_id = say.staff_id
        WHERE say.academic_year_id = ? AND s.deleted_at IS NULL`,
@@ -29,8 +29,8 @@ exports.stats = async (req, res, next) => {
 
     // Finance KPI
     const [financeKpi] = await db.query(
-      `SELECT COALESCE(SUM(CASE WHEN i.status!='void' THEN i.amount_due ELSE 0 END),0) as invoiced,
-        COALESCE((SELECT SUM(p.amount) FROM payments p JOIN invoices i2 ON p.invoice_id=i2.invoice_id WHERE i2.academic_year_id=?),0) as collected
+      `SELECT CAST(COALESCE(SUM(CASE WHEN i.status!='void' THEN i.amount_due ELSE 0 END),0) AS UNSIGNED) as invoiced,
+        CAST(COALESCE((SELECT SUM(p.amount) FROM payments p JOIN invoices i2 ON p.invoice_id=i2.invoice_id WHERE i2.academic_year_id=?),0) AS UNSIGNED) as collected
        FROM invoices i WHERE i.academic_year_id=?`,
       [yearId, yearId]
     );

@@ -14,23 +14,33 @@ exports.getFeeStructure = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+exports.listFeeItems = async (req, res, next) => {
+  try {
+    const data = await financeService.listFeeItems();
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+};
+
 exports.upsertFeeRate = async (req, res, next) => {
   try {
-    await financeService.upsertFeeRate(req.body);
+    await financeService.upsertFeeRate({ ...req.body, academicYearId: req.academicYearId || req.body.academicYearId });
     res.json({ success: true, message: 'Fee rate saved' });
   } catch (error) { next(error); }
 };
 
 exports.listInvoices = async (req, res, next) => {
   try {
-    const result = await financeService.listInvoices({ ...req.query, academicYearId: req.academicYearId });
+    const result = await financeService.listInvoices({ ...req.query });
     res.json({ success: true, ...result });
   } catch (error) { next(error); }
 };
 
 exports.generateInvoices = async (req, res, next) => {
   try {
-    const result = await financeService.generateInvoices(req.body, req.user.id);
+    const result = await financeService.generateInvoices({
+      ...req.body,
+      academicYearId: req.academicYearId || req.body.academicYearId,
+    }, req.user.id);
     res.json({ success: true, data: result });
   } catch (error) { next(error); }
 };
@@ -44,7 +54,10 @@ exports.getInvoiceDetail = async (req, res, next) => {
 
 exports.recordPayment = async (req, res, next) => {
   try {
-    const data = await financeService.recordPayment(req.body, req.user.id);
+    const data = await financeService.recordPayment({
+      ...req.body,
+      academicYearId: req.academicYearId || req.body.academicYearId,
+    }, req.user.id);
     res.status(201).json({ success: true, data });
   } catch (error) { next(error); }
 };
@@ -58,7 +71,10 @@ exports.listSponsorships = async (req, res, next) => {
 
 exports.upsertSponsorship = async (req, res, next) => {
   try {
-    const data = await financeService.upsertSponsorship(req.body, req.user.id);
+    const data = await financeService.upsertSponsorship({
+      ...req.body,
+      academicYearId: req.academicYearId || req.body.academicYearId,
+    }, req.user.id);
     res.json({ success: true, data });
   } catch (error) { next(error); }
 };
@@ -86,7 +102,14 @@ exports.getStudentStatement = async (req, res, next) => {
 
 exports.searchStudent = async (req, res, next) => {
   try {
-    const data = await financeService.searchStudent(req.query.q);
+    const data = await financeService.searchStudent(req.query.q, req.academicYearId);
     res.json({ success: true, data });
+  } catch (error) { next(error); }
+};
+
+exports.seedFinanceData = async (req, res, next) => {
+  try {
+    const data = await financeService.seedFinanceData(req.academicYearId);
+    res.json({ success: true, data, message: 'Finance demo data seeded successfully' });
   } catch (error) { next(error); }
 };

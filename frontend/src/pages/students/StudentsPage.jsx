@@ -30,7 +30,7 @@ const statusLabels = {
 };
 
 // ─── Modal wrapper ──────────────────────────────────────────
-function Modal({ title, children, onClose }) {
+function Modal({ title, children, onClose, wide }) {
   useEffect(() => {
     const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleKey);
@@ -50,7 +50,7 @@ function Modal({ title, children, onClose }) {
       <div
         style={{
           background: '#fff', borderRadius: 'var(--radius-md)',
-          width: '100%', maxWidth: 560, maxHeight: '85vh',
+          width: '100%', maxWidth: wide ? 680 : 560, maxHeight: '85vh',
           overflow: 'hidden', display: 'flex', flexDirection: 'column',
           boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
         }}
@@ -129,8 +129,36 @@ function SectionDivider({ label }) {
   );
 }
 
+// ─── Validation ─────────────────────────────────────────────
+function validateForm(form, isEdit) {
+  const errors = {};
+
+  // Required fields
+  if (!form.firstName?.trim()) errors.firstName = 'First name is required';
+  else if (form.firstName.trim().length < 2) errors.firstName = 'First name must be at least 2 characters';
+
+  if (!form.lastName?.trim()) errors.lastName = 'Last name is required';
+  else if (form.lastName.trim().length < 2) errors.lastName = 'Last name must be at least 2 characters';
+
+  if (!isEdit && !form.classId) errors.classId = 'Please select a class';
+
+  if (!form.dateOfBirth) errors.dateOfBirth = 'Date of birth is required';
+
+  // Optional field validations
+  if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    errors.email = 'Please enter a valid email address';
+  }
+
+  if (form.phone && !/^[0-9+\-\s()]{7,20}$/.test(form.phone)) {
+    errors.phone = 'Please enter a valid phone number';
+  }
+
+  return errors;
+}
+
 // ─── Student Form (Create / Edit) ──────────────────────────
 function StudentForm({ student, onSave, onCancel, saving, classes }) {
+  const isEdit = !!student;
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -158,27 +186,58 @@ function StudentForm({ student, onSave, onCancel, saving, classes }) {
     ...(student || {}),
   });
 
-  const handleChange = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+
+  const handleChange = (field) => (e) => {
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    // Clear error on change
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
+  const handleBlur = (field) => () => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    // Validate single field on blur
+    const fieldErrors = validateForm(form, isEdit);
+    if (fieldErrors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: fieldErrors[field] }));
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.firstName?.trim() || !form.lastName?.trim()) {
-      toast.error('First name and last name are required');
+    const fieldErrors = validateForm(form, isEdit);
+    setErrors(fieldErrors);
+    setTouched({ firstName: true, lastName: true, classId: true, dateOfBirth: true, email: true, phone: true });
+
+    if (Object.keys(fieldErrors).length > 0) {
+      toast.error('Please fill in all required fields');
       return;
     }
     onSave(form);
   };
+
+  const getFieldStyle = (field) => ({
+    ...inputStyle,
+    borderColor: (touched[field] && errors[field]) ? 'var(--color-error)' : inputStyle.border,
+  });
 
   return (
     <form onSubmit={handleSubmit} style={{ maxWidth: 600 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* Personal Information */}
         <SectionDivider label="Personal Information" />
-        <Field label="First Name *" required>
-          <input type="text" value={form.firstName} onChange={handleChange('firstName')} style={inputStyle} placeholder="John" />
+        <Field label="First Name" required error={touched.firstName && errors.firstName}>
+          <input type="text" value={form.firstName} onChange={handleChange('firstName')} onBlur={handleBlur('firstName')} style={getFieldStyle('firstName')} placeholder="John" />
         </Field>
-        <Field label="Last Name *" required>
-          <input type="text" value={form.lastName} onChange={handleChange('lastName')} style={inputStyle} placeholder="Doe" />
+        <Field label="Last Name" required error={touched.lastName && errors.lastName}>
+          <input type="text" value={form.lastName} onChange={handleChange('lastName')} onBlur={handleBlur('lastName')} style={getFieldStyle('lastName')} placeholder="Doe" />
         </Field>
         <Field label="Gender">
           <select value={form.gender} onChange={handleChange('gender')} style={inputStyle}>
@@ -186,8 +245,8 @@ function StudentForm({ student, onSave, onCancel, saving, classes }) {
             <option value="F">Female</option>
           </select>
         </Field>
-        <Field label="Date of Birth">
-          <input type="date" value={form.dateOfBirth || ''} onChange={handleChange('dateOfBirth')} style={inputStyle} />
+        <Field label="Date of Birth" required error={touched.dateOfBirth && errors.dateOfBirth}>
+          <input type="date" value={form.dateOfBirth || ''} onChange={handleChange('dateOfBirth')} onBlur={handleBlur('dateOfBirth')} style={getFieldStyle('dateOfBirth')} />
         </Field>
         <Field label="Nationality">
           <input type="text" value={form.nationality} onChange={handleChange('nationality')} style={inputStyle} placeholder="Rwandan" />
@@ -228,11 +287,11 @@ function StudentForm({ student, onSave, onCancel, saving, classes }) {
 
         {/* Contact */}
         <SectionDivider label="Contact" />
-        <Field label="Email">
-          <input type="email" value={form.email || ''} onChange={handleChange('email')} style={inputStyle} placeholder="john@school.rw" />
+        <Field label="Email" error={touched.email && errors.email}>
+          <input type="email" value={form.email || ''} onChange={handleChange('email')} onBlur={handleBlur('email')} style={getFieldStyle('email')} placeholder="john@school.rw" />
         </Field>
-        <Field label="Phone">
-          <input type="tel" value={form.phone || ''} onChange={handleChange('phone')} style={inputStyle} placeholder="+250 78X XXX XXX" />
+        <Field label="Phone" error={touched.phone && errors.phone}>
+          <input type="tel" value={form.phone || ''} onChange={handleChange('phone')} onBlur={handleBlur('phone')} style={getFieldStyle('phone')} placeholder="+250 78X XXX XXX" />
         </Field>
 
         {/* Official Documents */}
@@ -272,11 +331,11 @@ function StudentForm({ student, onSave, onCancel, saving, classes }) {
         </Field>
 
         {/* Enrollment */}
-        {!student && (
+        {!isEdit && (
           <>
             <SectionDivider label="Enrollment" />
-            <Field label="Class" required>
-              <select value={form.classId} onChange={handleChange('classId')} style={inputStyle}>
+            <Field label="Class" required error={touched.classId && errors.classId}>
+              <select value={form.classId} onChange={handleChange('classId')} onBlur={handleBlur('classId')} style={getFieldStyle('classId')}>
                 <option value="">Select class...</option>
                 {classes.map((c) => (
                   <option key={c.class_id} value={c.class_id}>
@@ -287,7 +346,7 @@ function StudentForm({ student, onSave, onCancel, saving, classes }) {
             </Field>
           </>
         )}
-        {student && (
+        {isEdit && (
           <>
             <SectionDivider label="Status" />
             <Field label="Status">
@@ -313,13 +372,13 @@ function StudentForm({ student, onSave, onCancel, saving, classes }) {
             color: '#fff', background: 'var(--color-primary)',
             border: 'none', borderRadius: 'var(--radius-sm)',
             cursor: 'pointer', minHeight: 'auto', opacity: saving ? 0.7 : 1,
-          }}>{saving ? 'Saving...' : student ? 'Update Student' : 'Add Student'}</button>
+          }}>{saving ? 'Saving...' : isEdit ? 'Update Student' : 'Add Student'}</button>
       </div>
     </form>
   );
 }
 
-function Field({ label, required, children }) {
+function Field({ label, required, error, children }) {
   return (
     <div>
       <label style={{
@@ -329,6 +388,11 @@ function Field({ label, required, children }) {
         {label} {required && <span style={{ color: 'var(--color-error)' }}>*</span>}
       </label>
       {children}
+      {error && (
+        <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--color-error)', fontWeight: 500 }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -338,9 +402,100 @@ const inputStyle = {
   fontSize: '0.85rem', border: '1.5px solid var(--color-border)',
   borderRadius: 'var(--radius-sm)', background: '#fff',
   color: 'var(--color-text-heading)', outline: 'none',
-  transition: 'border-color 0.2s',
-  boxSizing: 'border-box',
+  transition: 'border-color 0.2s', boxSizing: 'border-box',
 };
+
+// ─── Student Detail View ────────────────────────────────────
+function StudentDetailView({ student, onClose }) {
+  const DetailRow = ({ label, value }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--color-border-light)' }}>
+      <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)', fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: '0.85rem', color: 'var(--color-text-heading)', fontWeight: 500, textAlign: 'right' }}>{value || '—'}</span>
+    </div>
+  );
+
+  const SectionHeader = ({ label }) => (
+    <div style={{ marginTop: 16, marginBottom: 8 }}>
+      <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--color-primary)' }}>{label}</span>
+    </div>
+  );
+
+  return (
+    <Modal title="Student Details" onClose={onClose} wide>
+      <div style={{ maxWidth: 560 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: '50%',
+            background: student.gender === 'F' ? '#DC2626' : '#2563EB',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontWeight: 700, fontSize: '1.25rem', flexShrink: 0,
+          }}>
+            {(student.first_name || '?')[0]}{(student.last_name || '?')[0]}
+          </div>
+          <div>
+            <h3 style={{ margin: '0 0 4px', fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-text-heading)' }}>
+              {formatName(student)}
+            </h3>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
+                {student.admission_no || '—'}
+              </span>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '2px 8px', borderRadius: 12,
+                fontSize: '0.7rem', fontWeight: 600, color: '#fff',
+                background: statusColors[student.status] || '#64748B',
+              }}>
+                {statusLabels[student.status] || student.status}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Personal Info */}
+        <SectionHeader label="Personal Information" />
+        <DetailRow label="Gender" value={student.gender === 'F' ? 'Female' : 'Male'} />
+        <DetailRow label="Date of Birth" value={formatDate(student.date_of_birth)} />
+        <DetailRow label="Nationality" value={student.nationality} />
+        <DetailRow label="Residence Status" value={student.residence_status} />
+        <DetailRow label="National Student Code" value={student.national_student_code} />
+        <DetailRow label="Disability" value={student.disability} />
+
+        {/* Parent Info */}
+        <SectionHeader label="Parent / Guardian" />
+        <DetailRow label="Father's Name" value={student.father_name} />
+        <DetailRow label="Mother's Name" value={student.mother_name} />
+        <DetailRow label="Parenthood" value={student.parenthood} />
+
+        {/* Contact */}
+        <SectionHeader label="Contact" />
+        <DetailRow label="Email" value={student.email} />
+        <DetailRow label="Phone" value={student.phone} />
+
+        {/* Documents */}
+        <SectionHeader label="Official Documents" />
+        <DetailRow label="Paper Type" value={student.official_paper_type} />
+        <DetailRow label="Paper Number" value={student.official_paper_no} />
+
+        {/* Address */}
+        <SectionHeader label="Address" />
+        <DetailRow label="Province" value={student.province} />
+        <DetailRow label="District" value={student.district} />
+        <DetailRow label="Sector" value={student.sector} />
+        <DetailRow label="Cell" value={student.cell} />
+        <DetailRow label="Village" value={student.village} />
+        <DetailRow label="Detail Address" value={student.detail_address} />
+
+        {/* Enrollment */}
+        <SectionHeader label="Enrollment" />
+        <DetailRow label="Class" value={student.class_name ? `${student.class_name}${student.level ? ` (${student.level})` : ''}` : '—'} />
+        <DetailRow label="Trade" value={student.trade} />
+        <DetailRow label="Enrolled" value={formatDate(student.created_at)} />
+      </div>
+    </Modal>
+  );
+}
 
 // ─── Main Page ──────────────────────────────────────────────
 export default function StudentsPage() {
@@ -354,6 +509,7 @@ export default function StudentsPage() {
   // Modals
   const [showForm, setShowForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
+  const [viewingStudent, setViewingStudent] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
 
@@ -397,10 +553,6 @@ export default function StudentsPage() {
 
   // ─── Create ─────────────────────────────────────────────
   const handleCreate = async (data) => {
-    if (!data.classId) {
-      toast.error('Please select a class');
-      return;
-    }
     setSaving(true);
     try {
       await createStudent({
@@ -612,6 +764,15 @@ export default function StudentsPage() {
                     <Td>
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                         <ActionBtn
+                          title="View"
+                          onClick={() => setViewingStudent(s)}
+                          color="#059669"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </ActionBtn>
+                        <ActionBtn
                           title="Edit"
                           onClick={() => setEditingStudent(s)}
                           color="#2563EB"
@@ -643,8 +804,7 @@ export default function StudentsPage() {
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             flexWrap: 'wrap', gap: 12, padding: '14px 16px',
-            borderTop: '1px solid var(--color-border-light)',
-            background: 'var(--color-bg)',
+            borderTop: '1px solid var(--color-border-light)', background: 'var(--color-bg)',
           }}>
             <span style={{ fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
               Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
@@ -742,6 +902,14 @@ export default function StudentsPage() {
           onConfirm={handleDelete}
           onCancel={() => setDeleting(null)}
           loading={saving}
+        />
+      )}
+
+      {/* Student Detail View */}
+      {viewingStudent && (
+        <StudentDetailView
+          student={viewingStudent}
+          onClose={() => setViewingStudent(null)}
         />
       )}
 

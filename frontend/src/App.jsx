@@ -9,6 +9,9 @@ import DashboardPage from './pages/dashboard/DashboardPage';
 import StudentsPage from './pages/students/StudentsPage';
 import StaffPage from './pages/staff/StaffPage';
 import DashboardLayout from './components/layout/DashboardLayout';
+import ClassesPage from './pages/classes/ClassesPage';
+import FinancePage from './pages/finance/FinancePage';
+import AcademicYearsPage from './pages/academic-years/AcademicYearsPage';
 
 // ─── Protected Route ────────────────────────────────────────────
 function ProtectedRoute({ children }) {
@@ -86,10 +89,7 @@ function AppContent() {
         <Route path="/finance" element={
           <ProtectedRoute>
             <DashboardLayout>
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-light)' }}>
-                <h2>Finance Module</h2>
-                <p>Coming soon</p>
-              </div>
+              <FinancePage />
             </DashboardLayout>
           </ProtectedRoute>
         } />
@@ -106,20 +106,14 @@ function AppContent() {
         <Route path="/classes" element={
           <ProtectedRoute>
             <DashboardLayout>
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-light)' }}>
-                <h2>Classes Module</h2>
-                <p>Coming soon</p>
-              </div>
+              <ClassesPage />
             </DashboardLayout>
           </ProtectedRoute>
         } />
         <Route path="/academic-years" element={
           <ProtectedRoute>
             <DashboardLayout>
-              <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-text-light)' }}>
-                <h2>Academic Years</h2>
-                <p>Coming soon</p>
-              </div>
+              <AcademicYearsPage />
             </DashboardLayout>
           </ProtectedRoute>
         } />

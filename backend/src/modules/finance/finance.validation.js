@@ -1,7 +1,7 @@
 const Joi = require('joi');
 
 exports.feeRateSchema = Joi.object({
-  academicYearId: Joi.number().integer().positive().required(),
+  academicYearId: Joi.number().integer().positive(),
   level: Joi.string().required(),
   termId: Joi.number().integer().positive().required(),
   feeItemId: Joi.number().integer().positive().required(),
@@ -9,7 +9,7 @@ exports.feeRateSchema = Joi.object({
 });
 
 exports.generateInvoiceSchema = Joi.object({
-  academicYearId: Joi.number().integer().positive().required(),
+  academicYearId: Joi.number().integer().positive(),
   termId: Joi.number().integer().positive().required(),
   feeItemId: Joi.number().integer().positive().required(),
 });
@@ -26,7 +26,7 @@ exports.paymentSchema = Joi.object({
 
 exports.sponsorshipSchema = Joi.object({
   studentId: Joi.number().integer().positive().required(),
-  academicYearId: Joi.number().integer().positive().required(),
+  academicYearId: Joi.number().integer().positive(),
   sponsorName: Joi.string().min(2).max(200).required(),
   coveragePercent: Joi.number().min(0).max(100).required(),
   notes: Joi.string().allow('', null),

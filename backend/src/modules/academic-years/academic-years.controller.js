@@ -1,16 +1,36 @@
-const db = require('../../config/database');
+const service = require('./academic-years.service');
 
 exports.list = async (req, res, next) => {
   try {
-    const [rows] = await db.query('SELECT * FROM academic_years ORDER BY year_id DESC');
-    res.json({ success: true, data: rows });
+    const data = await service.list();
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+};
+
+exports.create = async (req, res, next) => {
+  try {
+    const data = await service.create(req.body);
+    res.status(201).json({ success: true, data });
   } catch (error) { next(error); }
 };
 
 exports.setCurrent = async (req, res, next) => {
   try {
-    await db.query('UPDATE academic_years SET is_current = FALSE');
-    await db.query('UPDATE academic_years SET is_current = TRUE WHERE year_id = ?', [req.params.id]);
-    res.json({ success: true, message: 'Academic year updated' });
+    await service.setCurrent(req.params.id);
+    res.json({ success: true, message: 'Academic year set as current' });
+  } catch (error) { next(error); }
+};
+
+exports.ensureCurrent = async (req, res, next) => {
+  try {
+    const data = await service.ensureCurrentYear();
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+};
+
+exports.remove = async (req, res, next) => {
+  try {
+    await service.remove(req.params.id);
+    res.json({ success: true, message: 'Academic year deleted' });
   } catch (error) { next(error); }
 };
