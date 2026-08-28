@@ -1,5 +1,6 @@
 const db = require('../../config/database');
 const { notify } = require('../../utils/notify');
+const { logActivity } = require('../../utils/activityLog');
 
 class TaskService {
   async list({ page = 1, limit = 20, status, priority, assignedTo, moduleKey, userId, role }) {
@@ -38,6 +39,7 @@ class TaskService {
         createdBy: userId,
       });
     }
+    await logActivity({ userId, action: 'create', moduleKey: 'tasks', entityId: result.insertId, entityType: 'task', description: `Created task "${data.title}"${data.assignedTo ? ` assigned to user #${data.assignedTo}` : ''}` });
     return { taskId: result.insertId };
   }
 
@@ -50,7 +52,7 @@ class TaskService {
     return { taskId: parseInt(id) };
   }
 
-  async delete(id, userId) { await db.query('DELETE FROM tasks WHERE task_id = ?', [id]); return true; }
+  async delete(id, userId) { await db.query('DELETE FROM tasks WHERE task_id = ?', [id]); await logActivity({ userId, action: 'delete', moduleKey: 'tasks', entityId: parseInt(id), entityType: 'task', description: `Deleted task #${id}` }); return true; }
 
   async updateStatus(id, status, userId) {
     const completedAt = status === 'completed' ? ' NOW()' : ' NULL';

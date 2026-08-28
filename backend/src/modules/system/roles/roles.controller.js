@@ -1,5 +1,6 @@
 const db = require('../../../config/database');
 const { notifyAdmins } = require('../../../utils/notify');
+const { logActivity } = require('../../../utils/activityLog');
 
 exports.list = async (req, res, next) => {
   try {
@@ -48,6 +49,7 @@ exports.create = async (req, res, next) => {
       }
     }
     const [newRole] = await db.query('SELECT * FROM roles WHERE role_id = ?', [result.insertId]);
+    await logActivity({ userId: req.user.id, action: 'create', moduleKey: 'system-settings', entityId: result.insertId, entityType: 'role', description: `Created role "${roleName}"` });
 
     // Notify admins about new role creation
     const [actor] = await db.query('SELECT full_name FROM users WHERE user_id = ?', [req.user.id]);
@@ -84,6 +86,7 @@ exports.remove = async (req, res, next) => {
     }
     await db.query('DELETE FROM role_permissions WHERE role_id = ?', [id]);
     await db.query('DELETE FROM roles WHERE role_id = ?', [id]);
+    await logActivity({ userId: req.user.id, action: 'delete', moduleKey: 'system-settings', entityId: parseInt(id), entityType: 'role', description: `Deleted role "${role[0].role_name}"` });
     res.json({ success: true, message: 'Role deleted' });
   } catch (error) { next(error); }
 };
@@ -98,6 +101,8 @@ exports.updatePermissions = async (req, res, next) => {
         [req.params.id, moduleKey, ops.canView || false, ops.canCreate || false, ops.canEdit || false, ops.canDelete || false]
       );
     }
+
+    await logActivity({ userId: req.user.id, action: 'update', moduleKey: 'system-settings', entityId: parseInt(req.params.id), entityType: 'role', description: `Updated permissions for role #${req.params.id}` });
 
     // Notify admins about permission changes
     const [role] = await db.query('SELECT role_name FROM roles WHERE role_id = ?', [req.params.id]);

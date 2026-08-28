@@ -6,6 +6,7 @@ const env = require("../../config/environment");
 const { UnauthorizedError, NotFoundError } = require("../../utils/errors");
 const { maskEmail } = require("../../utils/helpers");
 const logger = require("../../utils/logger");
+const { logActivity } = require("../../utils/activityLog");
 
 class AuthService {
   async _isPasswordValid(storedPassword, providedPassword) {
@@ -39,6 +40,7 @@ class AuthService {
 
     if (users.length === 0) {
       await this._logAttempt(null, username, "failed_password");
+      await logActivity({ action: 'login_failed', moduleKey: 'auth', description: `Failed login attempt for "${username}" (user not found)` });
       throw new UnauthorizedError("Invalid username or password");
     }
 
@@ -51,10 +53,12 @@ class AuthService {
     const valid = await this._isPasswordValid(user.password_hash, password);
     if (!valid) {
       await this._logAttempt(user.user_id, username, "failed_password");
+      await logActivity({ userId: user.user_id, action: 'login_failed', moduleKey: 'auth', description: `Failed login attempt for "${username}" (wrong password)` });
       throw new UnauthorizedError("Invalid username or password");
     }
 
     await this._logAttempt(user.user_id, username, "success");
+    await logActivity({ userId: user.user_id, action: 'login', moduleKey: 'auth', description: `User "${user.full_name}" logged in` });
 
     return {
       user: {
@@ -260,6 +264,7 @@ class AuthService {
       "UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = ?",
       [userId],
     );
+    await logActivity({ userId, action: 'logout', moduleKey: 'auth', description: 'User logged out' });
   }
 
   async getProfile(userId) {
@@ -352,6 +357,7 @@ class AuthService {
       entityId: userId,
       createdBy: userId,
     });
+    await logActivity({ userId, action: 'update', moduleKey: 'auth', entityType: 'user', entityId: userId, description: 'Password changed' });
   }
 
   async updateProfile(userId, { fullName }) {

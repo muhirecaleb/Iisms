@@ -1,6 +1,7 @@
 const db = require('../../config/database');
 const bcrypt = require('bcrypt');
 const { notifyAdmins, notify } = require('../../utils/notify');
+const { logActivity } = require('../../utils/activityLog');
 
 class UserService {
   async list({ page = 1, limit = 20, search, role, status }) {
@@ -73,6 +74,7 @@ class UserService {
       entityId: result.insertId,
       createdBy: result.insertId,
     });
+    await logActivity({ action: 'create', moduleKey: 'user-management', entityId: result.insertId, entityType: 'user', description: `Created user "${fullName}" (${username})` });
 
     return { userId: result.insertId, username };
   }
@@ -158,6 +160,7 @@ class UserService {
       throw err;
     }
     await db.query('UPDATE users SET deleted_at = NOW() WHERE user_id = ?', [id]);
+    await logActivity({ action: 'delete', moduleKey: 'user-management', entityId: parseInt(id), entityType: 'user', description: `Deleted user #${id}` });
     return { userId: parseInt(id) };
   }
 
@@ -177,6 +180,7 @@ class UserService {
     }
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await db.query('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE user_id = ?', [passwordHash, id]);
+    await logActivity({ action: 'update', moduleKey: 'user-management', entityId: parseInt(id), entityType: 'user', description: `Password reset for user #${id}` });
     return { userId: parseInt(id) };
   }
 }

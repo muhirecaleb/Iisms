@@ -16,6 +16,7 @@ import TasksPage from './pages/tasks/TasksPage';
 import RolesPage from './pages/roles/RolesPage';
 import UsersPage from './pages/users/UsersPage';
 import LibraryPage from './pages/library/LibraryPage';
+import SystemLogsPage from './pages/settings/SystemLogsPage';
 
 // ─── Protected Route ────────────────────────────────────────────
 function ProtectedRoute({ children }) {
@@ -143,6 +144,13 @@ function AppContent() {
           <ProtectedRoute>
             <DashboardLayout>
               <UsersPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/system-logs" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <SystemLogsPage />
             </DashboardLayout>
           </ProtectedRoute>
         } />

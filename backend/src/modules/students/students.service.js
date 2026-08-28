@@ -1,5 +1,6 @@
 const db = require('../../config/database');
 const { notifyAdmins, notify } = require('../../utils/notify');
+const { logActivity } = require('../../utils/activityLog');
 
 class StudentService {
   async list({ page = 1, limit = 20, search, academicYearId, gender, status, level, trade, sortBy = 'created_at', sortOrder = 'desc' }) {
@@ -125,6 +126,7 @@ class StudentService {
         entityId: studentId,
         createdBy: userId,
       });
+      await logActivity({ userId, action: 'create', moduleKey: 'students', entityId: studentId, entityType: 'student', description: `Enrolled student ${data.firstName} ${data.lastName} (${admissionNo})` });
 
       return { studentId, admissionNo };
     } catch (error) {
@@ -189,6 +191,8 @@ class StudentService {
         params
       );
 
+      await logActivity({ userId, action: 'update', moduleKey: 'students', entityId: parseInt(id, 10), entityType: 'student', description: `Updated student #${id}` });
+
       // Notify admins about student update (only for significant changes)
       if (data.status) {
         const [student] = await db.query('SELECT first_name, last_name FROM students WHERE student_id = ?', [id]);
@@ -226,6 +230,7 @@ class StudentService {
       'UPDATE students SET deleted_at = NOW() WHERE student_id = ?',
       [id]
     );
+    await logActivity({ userId, action: 'delete', moduleKey: 'students', entityId: parseInt(id, 10), entityType: 'student', description: `Deleted student #${id}` });
     return true;
   }
   async promote(data, userId) { return { promoted: 0, skipped: 0 }; }

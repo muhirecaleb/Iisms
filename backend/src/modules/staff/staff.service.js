@@ -1,5 +1,6 @@
 const db = require('../../config/database');
 const { notifyAdmins } = require('../../utils/notify');
+const { logActivity } = require('../../utils/activityLog');
 
 class StaffService {
   async list({ page = 1, limit = 20, search, academicYearId, status, category }) {
@@ -60,6 +61,7 @@ class StaffService {
       entityId: staffId,
       createdBy: userId,
     });
+    await logActivity({ userId, action: 'create', moduleKey: 'staff', entityId: staffId, entityType: 'staff', description: `Added staff ${data.fullName} (${staffNo})` });
 
     return { staffId, staffNo };
   }
@@ -114,6 +116,7 @@ class StaffService {
 
     params.push(id);
     await db.query(`UPDATE staff SET ${fields.join(', ')} WHERE staff_id = ? AND deleted_at IS NULL`, params);
+    await logActivity({ userId, action: 'update', moduleKey: 'staff', entityId: parseInt(id, 10), entityType: 'staff', description: `Updated staff #${id}` });
 
     return { staffId: parseInt(id, 10) };
   }
@@ -127,6 +130,7 @@ class StaffService {
       const { NotFoundError } = require('../../utils/errors');
       throw new NotFoundError('Staff member not found or already removed');
     }
+    await logActivity({ userId, action: 'delete', moduleKey: 'staff', entityId: parseInt(id, 10), entityType: 'staff', description: `Deleted staff #${id}` });
     return true;
   }
 
