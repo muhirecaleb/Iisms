@@ -1,4 +1,5 @@
 const db = require('../../config/database');
+const { notifyAdmins, notify } = require('../../utils/notify');
 
 class StudentService {
   async list({ page = 1, limit = 20, search, academicYearId, gender, status, level, trade, sortBy = 'created_at', sortOrder = 'desc' }) {
@@ -112,6 +113,19 @@ class StudentService {
       }
 
       await connection.commit();
+
+      // Notify admins about new student enrollment
+      const [actor] = await db.query('SELECT full_name FROM users WHERE user_id = ?', [userId]);
+      const actorName = actor.length > 0 ? actor[0].full_name : 'Someone';
+      await notifyAdmins({
+        type: 'student_added',
+        title: 'New student enrolled',
+        message: `${actorName} enrolled ${data.firstName} ${data.lastName} (${admissionNo})`,
+        moduleKey: 'students',
+        entityId: studentId,
+        createdBy: userId,
+      });
+
       return { studentId, admissionNo };
     } catch (error) {
       await connection.rollback();
@@ -174,6 +188,25 @@ class StudentService {
         `UPDATE students SET ${fields.join(', ')} WHERE student_id = ? AND deleted_at IS NULL`,
         params
       );
+
+      // Notify admins about student update (only for significant changes)
+      if (data.status) {
+        const [student] = await db.query('SELECT first_name, last_name FROM students WHERE student_id = ?', [id]);
+        if (student.length > 0) {
+          const s = student[0];
+          const [actor] = await db.query('SELECT full_name FROM users WHERE user_id = ?', [userId]);
+          const actorName = actor.length > 0 ? actor[0].full_name : 'Someone';
+          const statusLabel = data.status === 'active' ? 'activated' : data.status === 'transferred' ? 'transferred' : data.status === 'graduated' ? 'graduated' : data.status === 'dropped' ? 'dropped' : `changed to ${data.status}`;
+          await notifyAdmins({
+            type: 'student_updated',
+            title: 'Student status changed',
+            message: `${actorName} ${statusLabel} student "${s.first_name} ${s.last_name}"`,
+            moduleKey: 'students',
+            entityId: parseInt(id, 10),
+            createdBy: userId,
+          });
+        }
+      }
     }
 
     return { id: parseInt(id, 10) };

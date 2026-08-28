@@ -190,7 +190,7 @@ class AuthService {
       },
       accessToken,
       refreshToken,
-      expiresIn: 900,
+      expiresIn: 2592000,
     };
   }
 
@@ -248,7 +248,7 @@ class AuthService {
       return {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
-        expiresIn: 900,
+        expiresIn: 2592000,
       };
     } catch {
       throw new UnauthorizedError("Invalid refresh token");
@@ -340,6 +340,18 @@ class AuthService {
       hash,
       userId,
     ]);
+
+    // Notify user about password change
+    const { notify } = require('../../utils/notify');
+    await notify({
+      userId,
+      type: 'success',
+      title: 'Password changed',
+      message: 'Your password was changed successfully. If you did not do this, contact an administrator.',
+      moduleKey: 'auth',
+      entityId: userId,
+      createdBy: userId,
+    });
   }
 
   async updateProfile(userId, { fullName }) {

@@ -9,7 +9,10 @@ import {
   getRolePermissions,
   updateRolePermissions,
   listModules,
+  createRole,
+  deleteRole,
 } from '../../services/roles.service';
+import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 // ─── Role config ────────────────────────────────────────────
@@ -185,11 +188,19 @@ function PermissionEditor({ role, modules, onSave, onClose, saving }) {
 
 // ─── Main Page ──────────────────────────────────────────────
 export default function RolesPage() {
+  const { canPerform } = useAuth();
+  const canDelete = canPerform('system-settings', 'delete');
+  const canCreate = canPerform('system-settings', 'create');
+
   const [roles, setRoles] = useState([]);
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+
+  const BUILT_IN_ROLES = ['Administrator', 'Director', 'DOS', 'Registrar', 'Teacher', 'Discipline Officer', 'Accountant', 'Cashier', 'Finance Manager', 'HR Officer', 'Librarian'];
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -209,6 +220,28 @@ export default function RolesPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const handleCreate = async (roleName, description) => {
+    try {
+      await createRole({ roleName, description });
+      toast.success('Role created!');
+      setShowAddForm(false);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.error?.message || 'Failed to create role');
+    }
+  };
+
+  const handleDelete = async (role) => {
+    try {
+      await deleteRole(role.role_id);
+      toast.success('Role deleted');
+      setDeleting(null);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.error?.message || 'Failed to delete role');
+    }
+  };
+
   const handleSave = async (roleId, permissions) => {
     setSaving(true);
     try {
@@ -224,12 +257,19 @@ export default function RolesPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <Shield size={24} color="var(--color-primary)" />
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text-heading)' }}>Roles & Permissions</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <Shield size={24} color="var(--color-primary)" />
+            <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text-heading)' }}>Roles & Permissions</h1>
+          </div>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-light)' }}>Manage user roles and their module access permissions</p>
         </div>
-        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-light)' }}>Manage user roles and their module access permissions</p>
+        {canCreate && (
+          <button onClick={() => setShowAddForm(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', fontSize: '0.85rem', fontWeight: 600, color: '#fff', background: 'var(--color-primary)', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', minHeight: 'auto', boxShadow: '0 4px 12px rgba(26, 86, 219, 0.3)' }}>
+            <Plus size={16} /> Add Role
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -271,20 +311,37 @@ export default function RolesPage() {
 
                   <p style={{ margin: '0 0 16px', fontSize: '0.82rem', color: 'var(--color-text)', lineHeight: 1.5, minHeight: 40 }}>{rc.desc}</p>
 
-                  <button
-                    onClick={() => setEditing(role)}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      padding: '9px 16px', fontSize: '0.82rem', fontWeight: 600,
-                      color: rc.color, background: `${rc.color}08`,
-                      border: `1px solid ${rc.color}20`, borderRadius: 8,
-                      cursor: 'pointer', minHeight: 'auto', transition: 'all 0.15s',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = `${rc.color}14`; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = `${rc.color}08`; }}
-                  >
-                    <Pencil size={14} /> Edit Permissions <ChevronRight size={14} />
-                  </button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => setEditing(role)}
+                      style={{
+                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        padding: '9px 16px', fontSize: '0.82rem', fontWeight: 600,
+                        color: rc.color, background: `${rc.color}08`,
+                        border: `1px solid ${rc.color}20`, borderRadius: 8,
+                        cursor: 'pointer', minHeight: 'auto', transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = `${rc.color}14`; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = `${rc.color}08`; }}
+                    >
+                      <Pencil size={14} /> Permissions
+                    </button>
+                    {canDelete && !BUILT_IN_ROLES.includes(role.role_name) && (
+                      <button
+                        onClick={() => setDeleting(role)}
+                        style={{
+                          padding: '9px 14px', fontSize: '0.82rem', fontWeight: 600,
+                          color: '#DC2626', background: 'rgba(220,38,38,0.06)',
+                          border: '1px solid rgba(220,38,38,0.2)', borderRadius: 8,
+                          cursor: 'pointer', minHeight: 'auto', transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.06)'; }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -295,7 +352,71 @@ export default function RolesPage() {
       {editing && (
         <PermissionEditor role={editing} modules={modules} onSave={handleSave} onClose={() => setEditing(null)} saving={saving} />
       )}
+
+      {showAddForm && (
+        <AddRoleForm onSave={handleCreate} onClose={() => setShowAddForm(false)} />
+      )}
+
+      {deleting && (
+        <Modal title="Delete Role" onClose={() => setDeleting(null)}>
+          <p style={{ margin: '0 0 12px', fontSize: '0.9rem' }}>Are you sure you want to delete this role?</p>
+          <div style={{ padding: '12px 16px', background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)', marginBottom: 20 }}>
+            <div style={{ fontWeight: 600, color: 'var(--color-text-heading)', fontSize: '0.95rem' }}>{deleting.role_name}</div>
+            <div style={{ fontSize: '0.82rem', color: 'var(--color-text-light)', marginTop: 2 }}>Role ID: {deleting.role_id}</div>
+          </div>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+            <button onClick={() => setDeleting(null)} style={cancelBtnStyle}>Cancel</button>
+            <button onClick={() => handleDelete(deleting)} style={{ ...submitBtnStyle, background: '#DC2626' }}>Delete Role</button>
+          </div>
+        </Modal>
+      )}
     </div>
+  );
+}
+
+// ─── Add Role Form ─────────────────────────────────────────
+function AddRoleForm({ onSave, onClose }) {
+  const [roleName, setRoleName] = useState('');
+  const [description, setDescription] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!roleName.trim()) {
+      toast.error('Role name is required');
+      return;
+    }
+    setSaving(true);
+    await onSave(roleName.trim(), description.trim());
+    setSaving(false);
+  };
+
+  const inputStyle = { width: '100%', minHeight: 40, padding: '8px 12px', fontSize: '0.85rem', border: '1.5px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: '#fff', color: 'var(--color-text-heading)', outline: 'none', boxSizing: 'border-box' };
+
+  return (
+    <Modal title="Add New Role" onClose={onClose}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-heading)', marginBottom: 6 }}>
+            Role Name <span style={{ color: 'var(--color-error)' }}>*</span>
+          </label>
+          <input type="text" value={roleName} onChange={(e) => setRoleName(e.target.value)} style={inputStyle} placeholder="e.g. Academic Coordinator" autoFocus />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-heading)', marginBottom: 6 }}>
+            Description
+          </label>
+          <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} style={inputStyle} placeholder="Brief description of this role" />
+        </div>
+        <div style={{ fontSize: '0.78rem', color: 'var(--color-text-light)', background: 'var(--color-bg)', padding: '10px 14px', borderRadius: 'var(--radius-sm)' }}>
+          ℹ️ The new role will start with all permissions disabled. You can edit permissions after creation.
+        </div>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 }}>
+          <button type="button" onClick={onClose} style={cancelBtnStyle}>Cancel</button>
+          <button type="submit" disabled={saving} style={{ ...submitBtnStyle, opacity: saving ? 0.7 : 1 }}>{saving ? 'Creating...' : 'Create Role'}</button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

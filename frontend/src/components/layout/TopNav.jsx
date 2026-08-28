@@ -1,7 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import logoSvg from '../../assets/logo.png';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { listNotifications, getUnreadCount, markAsRead, markAllAsRead as apiMarkAllAsRead, deleteNotification, subscribeToNotifications } from '../../services/notifications.service';
+import { formatDistanceToNow } from 'date-fns';
 
 const navItems = [
   {
@@ -117,49 +119,7 @@ const navItems = [
   },
 ];
 
-// ─── Mock notification data ─────────────────────────────────────
-const mockNotifications = [
-  {
-    id: 1,
-    type: 'info',
-    title: 'New student enrolled',
-    description: 'John Doe has been enrolled in Senior 3',
-    time: '5 min ago',
-    unread: true,
-  },
-  {
-    id: 2,
-    type: 'success',
-    title: 'Payment received',
-    description: 'Tuition fee of 450,000 RWF received from Jane Smith',
-    time: '1 hour ago',
-    unread: true,
-  },
-  {
-    id: 3,
-    type: 'warning',
-    title: 'Task assigned',
-    description: 'You have been assigned to review term exam results',
-    time: '2 hours ago',
-    unread: true,
-  },
-  {
-    id: 4,
-    type: 'info',
-    title: 'Staff leave request',
-    description: 'Ms. Alice Mutesi has requested annual leave',
-    time: '1 day ago',
-    unread: false,
-  },
-  {
-    id: 5,
-    type: 'system',
-    title: 'System update',
-    description: 'Academic year 2026 has been activated',
-    time: '2 days ago',
-    unread: false,
-  },
-];
+
 
 function getTypeColor(type) {
   switch (type) {
@@ -211,7 +171,127 @@ export default function TopNav() {
   const userMenuRef = useRef(null);
   const notifRef = useRef(null);
 
-  const unreadCount = mockNotifications.filter((n) => n.unread).length;
+  // ─── Notification state ──────────────────────────────────────
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [taskUnreadCount, setTaskUnreadCount] = useState(0);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifPage, setNotifPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+
+  // ─── Fetch notifications ────────────────────────────────────
+  const fetchNotifications = useCallback(async (page = 1, prepend = false) => {
+    setNotifLoading(true);
+    try {
+      const result = await listNotifications({ page, limit: 10 });
+      const items = result.data || [];
+      if (prepend) {
+        setNotifications((prev) => [...items, ...prev.filter((n) => !items.find((i) => i.notification_id === n.notification_id))]);
+      } else {
+        setNotifications((prev) => page === 1 ? items : [...prev, ...items]);
+      }
+      setHasMore(items.length === 10);
+      setNotifPage(page);
+    } catch {
+      // Silent fail
+    } finally {
+      setNotifLoading(false);
+    }
+  }, []);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const count = await getUnreadCount();
+      setUnreadCount(count);
+      const taskCount = await getUnreadCount('tasks');
+      setTaskUnreadCount(taskCount);
+    } catch {
+      // Silent fail
+    }
+  }, []);
+
+  // ─── SSE connection for real-time updates ───────────────────
+  useEffect(() => {
+    fetchUnreadCount();
+
+    const { unsubscribe } = subscribeToNotifications((event) => {
+      if (event.type === 'unread_count') {
+        setUnreadCount(event.count);
+        // Re-fetch task count when total changes
+        getUnreadCount('tasks').then(setTaskUnreadCount).catch(() => {});
+      } else if (event.type === 'connected') {
+        // Connected
+      } else if (event.type === 'error') {
+        console.warn('SSE error:', event.message);
+      } else {
+        // New notification received - add to top of list
+        setNotifications((prev) => [
+          { notification_id: event.notification_id, ...event, is_read: 0 },
+          ...prev,
+        ]);
+        setUnreadCount((prev) => prev + 1);
+        if (event.module_key === 'tasks') {
+          setTaskUnreadCount((prev) => prev + 1);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [fetchUnreadCount]);
+
+  // ─── Fetch notifications when dropdown opens ────────────────
+  useEffect(() => {
+    if (notifOpen && notifications.length === 0) {
+      fetchNotifications(1);
+    }
+  }, [notifOpen, fetchNotifications, notifications.length]);
+
+  // ─── Clear task unread count when visiting Tasks page ────────
+  useEffect(() => {
+    if (location.pathname === '/tasks' && taskUnreadCount > 0) {
+      setTaskUnreadCount(0);
+    }
+  }, [location.pathname, taskUnreadCount]);
+
+  // ─── Notification actions ────────────────────────────────────
+  const handleMarkAsRead = async (notifId) => {
+    try {
+      await markAsRead(notifId);
+      setNotifications((prev) => prev.map((n) => n.notification_id === notifId ? { ...n, is_read: 1 } : n));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch {
+      // Silent fail
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await apiMarkAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+      setUnreadCount(0);
+    } catch {
+      // Silent fail
+    }
+  };
+
+  const handleDeleteNotification = async (notifId) => {
+    try {
+      await deleteNotification(notifId);
+      setNotifications((prev) => prev.filter((n) => n.notification_id !== notifId));
+      const deleted = notifications.find((n) => n.notification_id === notifId);
+      if (deleted && !deleted.is_read) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+    } catch {
+      // Silent fail
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (!notifLoading && hasMore) {
+      fetchNotifications(notifPage + 1);
+    }
+  };
 
   // Close user menu on click outside
   useEffect(() => {
@@ -238,11 +318,6 @@ export default function TopNav() {
   const initials = user?.fullName
     ? user.fullName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
     : user?.username?.charAt(0).toUpperCase() || 'U';
-
-  const markAllRead = () => {
-    mockNotifications.forEach((n) => { n.unread = false; });
-    setNotifOpen(false);
-  };
 
   return (
     <header
@@ -324,6 +399,7 @@ export default function TopNav() {
             : location.pathname.startsWith(item.path);
 
           const isHovered = hoveredItem === item.path;
+          const showDot = item.path === '/tasks' && taskUnreadCount > 0;
 
           return (
             <NavLink
@@ -353,6 +429,20 @@ export default function TopNav() {
             >
               {item.icon}
               <span>{item.label}</span>
+
+              {/* Unread task indicator dot */}
+              {showDot && (
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: '#DC2626',
+                    flexShrink: 0,
+                    boxShadow: '0 0 0 2px #fff',
+                  }}
+                />
+              )}
 
               {/* Bottom tab indicator (always visible on hover, solid on active) */}
               <div
@@ -470,7 +560,7 @@ export default function TopNav() {
                 </div>
                 {unreadCount > 0 && (
                   <button
-                    onClick={markAllRead}
+                    onClick={handleMarkAllRead}
                     style={{
                       background: 'none',
                       border: 'none',
@@ -490,82 +580,138 @@ export default function TopNav() {
 
               {/* Notification list */}
               <div style={{ maxHeight: 360, overflowY: 'auto' }}>
-                {mockNotifications.map((notif) => (
-                  <div
-                    key={notif.id}
-                    style={{
-                      display: 'flex',
-                      gap: 12,
-                      padding: '14px 16px',
-                      borderBottom: '1px solid var(--color-border-light)',
-                      cursor: 'pointer',
-                      background: notif.unread ? 'rgba(26, 86, 219, 0.04)' : 'transparent',
-                      transition: 'background 0.15s',
-                    }}
-                  >
-                    {/* Type icon */}
-                    <div style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: '50%',
-                      background: `${getTypeColor(notif.type)}12`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: getTypeColor(notif.type),
-                      flexShrink: 0,
-                    }}>
-                      {getTypeIcon(notif.type)}
-                    </div>
-
-                    {/* Content */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                {notifLoading && notifications.length === 0 ? (
+                  <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--color-text-light)', fontSize: '0.85rem' }}>
+                    Loading notifications...
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--color-text-light)', fontSize: '0.85rem' }}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto 8px', opacity: 0.4 }}>
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                    <div>No notifications yet</div>
+                  </div>
+                ) : (
+                  notifications.map((notif) => (
+                    <div
+                      key={notif.notification_id}
+                      style={{
+                        display: 'flex',
+                        gap: 12,
+                        padding: '14px 16px',
+                        borderBottom: '1px solid var(--color-border-light)',
+                        background: notif.is_read ? 'transparent' : 'rgba(26, 86, 219, 0.04)',
+                        transition: 'background 0.15s',
+                        position: 'relative',
+                      }}
+                    >
+                      {/* Type icon */}
                       <div style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        background: `${getTypeColor(notif.type)}12`,
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 8,
-                        marginBottom: 2,
+                        justifyContent: 'center',
+                        color: getTypeColor(notif.type),
+                        flexShrink: 0,
                       }}>
-                        <span style={{
-                          fontSize: '0.85rem',
-                          fontWeight: notif.unread ? 600 : 500,
-                          color: 'var(--color-text-heading)',
-                        }}>
-                          {notif.title}
-                        </span>
-                        {notif.unread && (
-                          <span style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            background: 'var(--color-primary)',
-                            flexShrink: 0,
-                          }} />
-                        )}
+                        {getTypeIcon(notif.type)}
                       </div>
-                      <p style={{
-                        margin: '2px 0 0',
-                        fontSize: '0.8rem',
-                        color: 'var(--color-text-light)',
-                        lineHeight: 1.4,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {notif.description}
-                      </p>
-                      <span style={{
-                        fontSize: '0.7rem',
-                        color: 'var(--color-text-light)',
-                        marginTop: 4,
-                        display: 'block',
-                      }}>
-                        {notif.time}
-                      </span>
+
+                      {/* Content */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                          marginBottom: 2,
+                        }}>
+                          <span style={{
+                            fontSize: '0.85rem',
+                            fontWeight: notif.is_read ? 500 : 600,
+                            color: 'var(--color-text-heading)',
+                          }}>
+                            {notif.title}
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                            {!notif.is_read && (
+                              <span style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                background: 'var(--color-primary)',
+                              }} />
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteNotification(notif.notification_id);
+                              }}
+                              title="Delete"
+                              style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                color: 'var(--color-text-light)', padding: 2, display: 'flex',
+                                minHeight: 'auto', opacity: 0.5, transition: 'opacity 0.15s',
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.opacity = 1; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.opacity = 0.5; }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        <p style={{
+                          margin: '2px 0 0',
+                          fontSize: '0.8rem',
+                          color: 'var(--color-text-light)',
+                          lineHeight: 1.4,
+                        }}>
+                          {notif.message}
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-light)' }}>
+                            {notif.created_at ? formatDistanceToNow(new Date(notif.created_at), { addSuffix: true }) : ''}
+                          </span>
+                          {!notif.is_read && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkAsRead(notif.notification_id);
+                              }}
+                              style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                fontSize: '0.7rem', color: 'var(--color-primary)',
+                                fontWeight: 600, minHeight: 'auto', padding: '2px 4px',
+                              }}
+                            >
+                              Mark read
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
+                {/* Load more */}
+                {hasMore && notifications.length > 0 && (
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={notifLoading}
+                    style={{
+                      width: '100%', padding: '10px 16px', background: 'none',
+                      border: 'none', cursor: notifLoading ? 'default' : 'pointer',
+                      fontSize: '0.8rem', color: 'var(--color-primary)',
+                      fontWeight: 600, opacity: notifLoading ? 0.5 : 1,
+                    }}
+                  >
+                    {notifLoading ? 'Loading...' : 'Load more'}
+                  </button>
+                )}
               </div>
 
               {/* Footer */}
@@ -587,7 +733,7 @@ export default function TopNav() {
                     padding: '4px 8px',
                   }}
                 >
-                  View all notifications
+                  Close
                 </button>
               </div>
             </div>

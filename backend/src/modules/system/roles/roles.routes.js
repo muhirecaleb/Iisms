@@ -14,6 +14,8 @@ router.get('/modules', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 router.get('/', controller.list);
+router.post('/', controller.create);
+router.delete('/:id', controller.remove);
 router.get('/:id/permissions', controller.getPermissions);
 router.put('/:id/permissions', controller.updatePermissions);
 

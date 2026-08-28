@@ -1,4 +1,5 @@
 const db = require('../../config/database');
+const { notifyAdmins } = require('../../utils/notify');
 
 class StaffService {
   async list({ page = 1, limit = 20, search, academicYearId, status, category }) {
@@ -47,6 +48,19 @@ class StaffService {
     if (years.length) {
       await db.query('INSERT INTO staff_academic_years (staff_id, academic_year_id) VALUES (?, ?)', [staffId, years[0].year_id]);
     }
+
+    // Notify admins about new staff member
+    const [actor] = await db.query('SELECT full_name FROM users WHERE user_id = ?', [userId]);
+    const actorName = actor.length > 0 ? actor[0].full_name : 'Someone';
+    await notifyAdmins({
+      type: 'staff_added',
+      title: 'New staff member added',
+      message: `${actorName} added ${data.fullName} (${staffNo}) as ${data.staffCategory || 'staff'}`,
+      moduleKey: 'staff',
+      entityId: staffId,
+      createdBy: userId,
+    });
+
     return { staffId, staffNo };
   }
 

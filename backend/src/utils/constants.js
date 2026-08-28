@@ -8,7 +8,7 @@ module.exports = {
   BCRYPT_SALT_ROUNDS: 12,
 
   // --- JWT ---
-  JWT_ACCESS_EXPIRY_DEFAULT: '15m',
+  JWT_ACCESS_EXPIRY_DEFAULT: '30d',
   JWT_REFRESH_EXPIRY_DEFAULT: '7d',
 
   // --- Pagination ---

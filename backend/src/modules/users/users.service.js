@@ -1,5 +1,6 @@
 const db = require('../../config/database');
 const bcrypt = require('bcrypt');
+const { notifyAdmins, notify } = require('../../utils/notify');
 
 class UserService {
   async list({ page = 1, limit = 20, search, role, status }) {
@@ -63,6 +64,16 @@ class UserService {
       [username, fullName, email, phone || null, passwordHash, roleId, status || 'active']
     );
 
+    // Notify admins about new user creation
+    await notifyAdmins({
+      type: 'user_created',
+      title: 'New user account created',
+      message: `User "${fullName}" (${username}) was created with role "${roleId}"`,
+      moduleKey: 'user-management',
+      entityId: result.insertId,
+      createdBy: result.insertId,
+    });
+
     return { userId: result.insertId, username };
   }
 
@@ -106,6 +117,32 @@ class UserService {
       fields.push('updated_at = NOW()');
       params.push(id);
       await db.query(`UPDATE users SET ${fields.join(', ')} WHERE user_id = ? AND deleted_at IS NULL`, params);
+
+      // Notify user about role change
+      if (roleId) {
+        const [role] = await db.query('SELECT role_name FROM roles WHERE role_id = ?', [roleId]);
+        if (role.length > 0) {
+          await notify({
+            userId: parseInt(id),
+            type: 'role_changed',
+            title: 'Your role was updated',
+            message: `Your role has been changed to "${role[0].role_name}".`,
+            moduleKey: 'user-management',
+            entityId: parseInt(id),
+          });
+        }
+      }
+      // Notify user about password reset
+      if (password) {
+        await notify({
+          userId: parseInt(id),
+          type: 'warning',
+          title: 'Password was reset',
+          message: 'Your password was reset by an administrator. Please log in and change your password.',
+          moduleKey: 'user-management',
+          entityId: parseInt(id),
+        });
+      }
     }
 
     return { userId: parseInt(id) };
