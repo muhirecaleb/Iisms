@@ -1,538 +1,401 @@
-# 🏫 IISMS — Intango Integrated School Management System
+# 🎓 IISMS - Integrated Institutional System Management Suite
 
-> **Branch:** `nodejs-react-migration`
-> **Stack:** Node.js + React.js + MySQL
-> **Status:** 🚧 Migration in Progress — Architecture & Documentation Phase
+> A comprehensive, scalable management system for educational institutions built with modern web technologies.
+
+**Branch:** `nodejs-react-migration` | **Status:** Active Development | **Version:** 1.0.0
+
+---
 
 ## 📋 Table of Contents
 
-- [1. Overview](#1-overview)
-- [2. Why Node.js + React?](#2-why-nodejs--react)
-- [3. Project Structure](#3-project-structure)
-- [4. Technology Stack](#4-technology-stack)
-- [5. Features at a Glance](#5-features-at-a-glance)
-- [6. Quick Start](#6-quick-start)
-- [7. Modules Overview](#7-modules-overview)
-- [8. Migration Roadmap](#8-migration-roadmap)
-- [9. Development Guidelines](#9-development-guidelines)
-- [10. Documentation Index](#10-documentation-index)
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Administrator Credentials](#administrator-credentials)
+- [Project Structure](#project-structure)
+- [Key Features](#key-features)
+- [Installation & Setup](#installation--setup)
+- [API Documentation](#api-documentation)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## 1. Overview
+## 🌟 Overview
 
-**IISMS (Intango Integrated School Management System)** is a comprehensive school management platform designed for Intango Technical Secondary School (TSS) in Rwanda. This branch represents the **complete re-architecture** of the original PHP prototype into a modern, scalable, and maintainable **Node.js + React.js** stack with a redesigned MySQL database.
+**IISMS** (Integrated Institutional System Management Suite) is an enterprise-grade management system designed for educational institutions. It provides comprehensive modules for academic management, student services, human resources, finance, and more.
 
-The system provides role-based access to school management functions including student registration, staff management, finance/accounting, task management, and many more modules following Rwanda's TVET (Technical and Vocational Education and Training) school structure.
+### Core Capabilities
 
-### Architecture at a Glance
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Frontend (React)                       │
-│  ┌─────────┐ ┌──────────┐ ┌──────────┐ ┌─────────────┐  │
-│  │ Auth UI  │ │ Dashboard│ │ Modules  │ │ Shared UI   │  │
-│  │          │ │          │ │ Pages    │ │ Components  │  │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └──────┬──────┘  │
-│       └────────────┴────────────┴───────────────┘         │
-│                         │ Axios HTTP                       │
-│                    JWT Token 🔐                           │
-└─────────────────────────┬─────────────────────────────────┘
-                          │
-┌─────────────────────────▼─────────────────────────────────┐
-│                  Backend (Node.js)                         │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐  │
-│  │ REST API │ │ JWT Auth │ │ RBAC     │ │ Validators   │  │
-│  │ Router   │ │ Middleware│ │ Middlew. │ │ (Joi/Zod)    │  │
-│  └────┬─────┘ └──────────┘ └──────────┘ └──────────────┘  │
-│       │                                                    │
-│  ┌────▼────────────────────────────────────────────────┐   │
-│  │  Service Layer (Business Logic)                     │   │
-│  │  Students │ Staff │ Finance │ Tasks │ System        │   │
-│  └────┬────────────────────────────────────────────────┘   │
-│       │                                                    │
-│  ┌────▼────────────────────────────────────────────────┐   │
-│  │  Data Access Layer (MySQL2 + connection pool)        │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────┬─────────────────────────────────┘
-                          │
-┌─────────────────────────▼─────────────────────────────────┐
-│                    MySQL Database                           │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐  │
-│  │ Core     │ │ Students │ │ Finance  │ │ HR/Tasks     │  │
-│  │ System   │ │          │ │          │ │              │  │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────────┘  │
-└───────────────────────────────────────────────────────────┘
-```
+- 👥 **User Management** — Multi-role access control (Admin, Staff, Student, etc.)
+- 📚 **Academic Management** — Classes, academic years, students, curriculum
+- 💰 **Finance Management** — Invoices, payments, financial tracking
+- 📖 **Library Management** — Books, inventory, borrowing system
+- 👔 **Human Resources** — Staff management, attendance, payroll
+- 📊 **Dashboard** — Real-time analytics and insights
+- 🔔 **Notifications** — Email/SMS alerts and notifications
+- 📋 **Task Management** — Assignment and tracking system
+- 🔐 **RBAC** — Role-based access control with granular permissions
+- 📜 **Audit Logs** — Complete system activity tracking
 
 ---
 
-## 2. Why Node.js + React?
+## 🛠 Tech Stack
 
-| Concern | PHP (Original) | Node.js + React (New) |
-|---------|---------------|----------------------|
-| **Language** | PHP 8.0 | JavaScript/TypeScript (universal language) |
-| **Frontend** | Server-rendered (Bootstrap) | SPA with React 18+ |
-| **API Style** | File-based routing | RESTful API with Express |
-| **Authentication** | Session-based + OTP | JWT (access + refresh tokens) |
-| **State Management** | $_SESSION global | React Context / Redux |
-| **Realtime** | No | WebSocket (Socket.io for notifications) |
-| **Type Safety** | None | TypeScript (optional, strongly recommended) |
-| **Testing** | Manual | Jest, React Testing Library, Supertest |
-| **Package Mgmt** | Composer (not used) | npm / yarn |
-| **Deployment** | Apache / php -S | Node process (PM2 / Docker) |
-| **Developer Experience** | Mixed HTML/PHP | Component-based, hot reload |
+### Frontend
 
----
+- **Framework:** React 18.x with Vite
+- **Styling:** CSS/Tailwind
+- **State Management:** React Context API
+- **HTTP Client:** Axios
+- **Package Manager:** pnpm
 
-## 3. Project Structure
+### Backend
 
-```
-iisms/
-├── backend/                    # Node.js API server
-│   ├── src/
-│   │   ├── config/
-│   │   │   ├── database.js     # MySQL2 connection pool
-│   │   │   ├── environment.js  # Environment variables
-│   │   │   └── cors.js         # CORS configuration
-│   │   ├── middleware/
-│   │   │   ├── auth.js         # JWT verification
-│   │   │   ├── rbac.js         # Role-based access control
-│   │   │   ├── validate.js     # Request validation
-│   │   │   ├── errorHandler.js # Global error handler
-│   │   │   └── yearContext.js  # Academic year context
-│   │   ├── modules/
-│   │   │   ├── auth/           # Authentication module
-│   │   │   │   ├── auth.controller.js
-│   │   │   │   ├── auth.service.js
-│   │   │   │   ├── auth.routes.js
-│   │   │   │   └── auth.validation.js
-│   │   │   ├── students/       # Student Information System
-│   │   │   ├── staff/          # Human Resources
-│   │   │   ├── finance/        # Finance module
-│   │   │   │   ├── fee-structure/
-│   │   │   │   ├── invoices/
-│   │   │   │   ├── payments/
-│   │   │   │   ├── sponsorships/
-│   │   │   │   └── reports/
-│   │   │   ├── tasks/          # Task management
-│   │   │   ├── academic-years/ # Academic year management
-│   │   │   ├── classes/        # Class management
-│   │   │   ├── dashboard/      # Dashboard statistics
-│   │   │   └── system/         # System settings
-│   │   │       ├── roles/
-│   │   │       ├── users/
-│   │   │       └── modules/
-│   │   ├── utils/
-│   │   │   ├── helpers.js      # Shared utilities
-│   │   │   ├── logger.js       # Winston logger
-│   │   │   ├── errors.js       # Custom error classes
-│   │   │   └── constants.js    # Shared constants
-│   │   ├── routes/
-│   │   │   └── index.js        # Route aggregator
-│   │   └── app.js              # Express app setup
-│   ├── server.js               # Entry point
-│   ├── package.json
-│   └── .env.example
-│
-├── frontend/                   # React SPA
-│   ├── public/
-│   │   └── index.html
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── layout/
-│   │   │   │   ├── MainLayout.jsx
-│   │   │   │   ├── Header.jsx
-│   │   │   │   ├── Sidebar.jsx
-│   │   │   │   └── Footer.jsx
-│   │   │   ├── common/
-│   │   │   │   ├── DataTable.jsx
-│   │   │   │   ├── Modal.jsx
-│   │   │   │   ├── FormField.jsx
-│   │   │   │   ├── StatusBadge.jsx
-│   │   │   │   ├── LoadingSpinner.jsx
-│   │   │   │   └── EmptyState.jsx
-│   │   │   └── shared/
-│   │   │       ├── CategoryManager.jsx
-│   │   │       ├── AcademicYearSelector.jsx
-│   │   │       └── StudentWizard.jsx
-│   │   ├── pages/
-│   │   │   ├── auth/
-│   │   │   │   ├── LoginPage.jsx
-│   │   │   │   └── VerifyOTPPage.jsx
-│   │   │   ├── dashboard/
-│   │   │   │   └── DashboardPage.jsx
-│   │   │   ├── students/
-│   │   │   │   ├── StudentListPage.jsx
-│   │   │   │   ├── StudentAddPage.jsx
-│   │   │   │   ├── StudentEditPage.jsx
-│   │   │   │   ├── StudentPromotePage.jsx
-│   │   │   │   └── StudentExportPage.jsx
-│   │   │   ├── staff/
-│   │   │   │   ├── StaffListPage.jsx
-│   │   │   │   ├── StaffAddPage.jsx
-│   │   │   │   └── StaffEditPage.jsx
-│   │   │   ├── finance/
-│   │   │   │   ├── FinanceDashboardPage.jsx
-│   │   │   │   ├── FeeStructurePage.jsx
-│   │   │   │   ├── InvoicesPage.jsx
-│   │   │   │   ├── ReceivePaymentPage.jsx
-│   │   │   │   ├── SponsorshipsPage.jsx
-│   │   │   │   ├── ReportsPage.jsx
-│   │   │   │   └── StudentStatementPage.jsx
-│   │   │   ├── tasks/
-│   │   │   │   ├── TaskBoardPage.jsx
-│   │   │   │   └── TaskFormPage.jsx
-│   │   │   ├── settings/
-│   │   │   │   ├── AcademicYearsPage.jsx
-│   │   │   │   ├── RolesPage.jsx
-│   │   │   │   ├── UsersPage.jsx
-│   │   │   │   └── ProfilePage.jsx
-│   │   │   └── error/
-│   │   │       ├── NotFoundPage.jsx
-│   │   │       └── ForbiddenPage.jsx
-│   │   ├── hooks/
-│   │   │   ├── useAuth.js
-│   │   │   ├── useApi.js
-│   │   │   ├── useAcademicYear.js
-│   │   │   ├── usePagination.js
-│   │   │   └── useForm.js
-│   │   ├── context/
-│   │   │   ├── AuthContext.jsx
-│   │   │   └── YearContext.jsx
-│   │   ├── services/
-│   │   │   ├── api.js            # Axios instance with interceptors
-│   │   │   ├── auth.service.js
-│   │   │   ├── student.service.js
-│   │   │   ├── staff.service.js
-│   │   │   ├── finance.service.js
-│   │   │   ├── task.service.js
-│   │   │   └── system.service.js
-│   │   ├── utils/
-│   │   │   ├── constants.js
-│   │   │   ├── formatters.js
-│   │   │   ├── validators.js
-│   │   │   ├── permissions.js
-│   │   │   └── modules.js         # Module registry for sidebar
-│   │   ├── styles/
-│   │   │   ├── global.css
-│   │   │   ├── variables.css
-│   │   │   └── components/
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── package.json
-│   ├── vite.config.js
-│   └── .env.example
-│
-├── database/                   # Database migration files
-│   ├── migrations/
-│   │   ├── 001_initial_schema.sql
-│   │   ├── 002_seed_data.sql
-│   │   └── 003_demo_accounts.sql
-│   └── README.md
-│
-├── docs/                        # Documentation (see Section 10)
-├── .gitignore
-├── .nvmrc                       # Node version specification
-├── docker-compose.yml           # MySQL + Node.js containers
-└── README.md                    # This file
-```
+- **Runtime:** Node.js 20.x
+- **Framework:** Express.js
+- **Database:** MySQL 8.0+
+- **Authentication:** JWT (JSON Web Tokens)
+- **Validation:** Joi/Zod
+- **Logging:** Morgan + Winston
+
+### DevOps
+
+- **Package Management:** pnpm workspace
+- **Database Migrations:** Custom SQL scripts
+- **Environment Management:** .env configuration
 
 ---
 
-## 4. Technology Stack
-
-### Backend (Node.js)
-
-| Technology | Purpose | Version |
-|-----------|---------|---------|
-| **Node.js** | Runtime | 20.x LTS |
-| **Express.js** | HTTP framework | 4.x |
-| **MySQL2** | Database driver (promise-based) | 3.x |
-| **JWT (jsonwebtoken)** | Access + refresh tokens | 9.x |
-| **bcrypt** | Password hashing | 5.x |
-| **Joi / Zod** | Request validation | Latest |
-| **Winston** | Logging | 3.x |
-| **dotenv** | Environment variables | 16.x |
-| **helmet** | Security headers | 7.x |
-| **cors** | Cross-origin resource sharing | 2.x |
-| **express-rate-limit** | Rate limiting | 7.x |
-| **nodemailer** | Email (OTP) | 6.x |
-| **multer** | File uploads | 1.x |
-| **morgan** | HTTP request logging | 1.x |
-
-### Frontend (React)
-
-| Technology | Purpose | Version |
-|-----------|---------|---------|
-| **React** | UI framework | 18.x |
-| **React Router** | Client-side routing | 6.x |
-| **Axios** | HTTP client | 1.x |
-| **React Context API** | State management | Built-in |
-| **Vite** | Build tool / dev server | 5.x |
-| **ESLint + Prettier** | Code quality | Latest |
-| **Tailwind CSS** (or **MUI**) | Styling | Latest |
-| **Recharts / Chart.js** | Charts & graphs | Latest |
-| **React Hook Form** | Form management | Latest |
-| **react-hot-toast** | Notifications | Latest |
-| **date-fns** | Date utilities | Latest |
-
-### Database (MySQL)
-
-| Feature | Version |
-|---------|---------|
-| **MySQL** | 8.0+ |
-| **Charset** | utf8mb4 |
-| **Engine** | InnoDB (with Foreign Keys) |
-| **Migration Tool** | Custom SQL scripts / Knex.js |
-
-### Developer Tools
-
-| Tool | Purpose |
-|------|---------|
-| **Postman / Insomnia** | API testing |
-| **Docker** | Containerized development |
-| **PM2** | Production process manager |
-| **Jest + Supertest** | Backend testing |
-| **React Testing Library** | Frontend testing |
-| **Git + GitHub** | Version control |
-
----
-
-## 5. Features at a Glance
-
-### ✅ Core System Features (Planned)
-
-| Feature | Description | Status |
-|---------|-------------|--------|
-| **JWT Authentication** | Access token (15min) + Refresh token (7d) with httpOnly cookies | 📝 Planned |
-| **Two-Factor Auth (OTP)** | Email-based OTP with rate limiting and SHA-256 hashing | 📝 Planned |
-| **Role-Based Access Control** | 11+ roles with module-level permissions | 📝 Planned |
-| **Academic Year Navigation** | Switch years, historical data browsing with visual indicators | 📝 Planned |
-| **RESTful API** | Clean, versioned API (`/api/v1/...`) with consistent responses | 📝 Planned |
-| **Multi-Year Records** | Students and Staff tracked per academic year via link tables | 📝 Planned |
-| **File Uploads** | Staff/Student photos with validation and cloud storage support | 📝 Planned |
-| **CSV Export/Import** | Student data export with potential bulk import | 📝 Planned |
-| **Audit Trail** | Comprehensive activity logging across all modules | 📝 Planned |
-| **Realtime Notifications** | WebSocket-based alerts for task assignments, payment reminders | 📝 Planned |
-| **Dark Mode** | Theme toggle with persistent preference | 📝 Planned |
-| **Responsive SPA** | Mobile-first design with offline-capable PWA support | 📝 Planned |
-
-### ✅ Feature Modules (Planned)
-
-| Module | Description | Status |
-|--------|-------------|--------|
-| **Student Information System** | Registration wizard, promotion, CSV export, contact management | 📝 Planned |
-| **Human Resources** | Staff registration, photo upload, copy-forward between years | 📝 Planned |
-| **Finance** | Fee structure, invoices, payments, sponsorships, reports with charts | 📝 Planned |
-| **Tasks** | Cross-module assignment, priority levels, status tracking | 📝 Planned |
-| **Academic Management** | Calendar, timetable, subjects, marks, assessments, report cards | 📝 Planned |
-| **Learning Management** | Materials, assignments, online assessments | 📝 Planned |
-| **Library** | Books, borrowing, returns, digital resources | 📝 Planned |
-| **Inventory** | Assets, equipment, computers, furniture, consumables | 📝 Planned |
-| **Document Management** | Policies, reports, photos, videos, strategic plan | 📝 Planned |
-| **Quality Assurance** | NESA indicators, evidence management, internal audit | 📝 Planned |
-| **Student Welfare** | Discipline, counselling, health, clubs, boarding, safeguarding | 📝 Planned |
-| **Graduate Tracer** | Employment tracking, employer records | 📝 Planned |
-| **Volunteers** | Profiles, assignments, performance | 📝 Planned |
-| **Partnerships** | Organizations, contacts, agreements, donations | 📝 Planned |
-| **Projects** | DSE, Bridge, Holiday Bootcamps, Short Courses | 📝 Planned |
-
----
-
-## 6. Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
-| Requirement | Version | Check Command |
-|-------------|---------|---------------|
-| **Node.js** | 20.x LTS | `node --version` |
-| **npm** | 10.x | `npm --version` |
-| **MySQL** | 8.0+ | `mysql --version` |
-| **Git** | Latest | `git --version` |
+- Node.js 20.x or higher
+- MySQL 8.0 or higher
+- npm/pnpm package manager
+- Git
 
-### Setup Commands
+### Installation Steps
 
 ```bash
 # 1. Clone the repository
-git clone <repo-url> iisms
+git clone <repository-url> iisms
 cd iisms
 
-# 2. Switch to migration branch
-git checkout nodejs-react-migration
+# 2. Install dependencies
+pnpm install
 
-# 3. Set up the database
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS iisms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-mysql -u root -p iisms < database/migrations/001_initial_schema.sql
-mysql -u root -p iisms < database/migrations/002_seed_data.sql
-mysql -u root -p iisms < database/migrations/003_demo_accounts.sql
-
-# 4. Configure backend environment
+# 3. Setup database
 cd backend
-cp .env.example .env
-# Edit .env with your MySQL credentials and JWT secret
+pnpm run migrate
 
-# 5. Install backend dependencies & start
-npm install
-npm run dev        # Starts on http://localhost:3001
+# 4. Start backend server
+pnpm run dev
 
-# 6. In a new terminal — configure & start frontend
-cd ../frontend
-cp .env.example .env
-npm install
-npm run dev        # Starts on http://localhost:5173
+# 5. In another terminal, start frontend
+cd frontend
+pnpm run dev
 ```
+
+### Access the Application
+
+- **Frontend:** http://localhost:5173
+- **Backend API:** http://localhost:5000
+- **Database:** localhost:3306
+
+---
+
+## 🔑 Administrator Credentials
+
+Once the system is set up, use these credentials to log in:
+
+```
+Username: admin
+Password: admin123
+```
+
+> ⚠️ **Security Note:** Change these credentials immediately after first login in a production environment.
+
+---
+
+## 📁 Project Structure
+
+```
+iisms/
+├── frontend/                 # React SPA application
+│   ├── src/
+│   │   ├── components/      # Reusable React components
+│   │   ├── pages/           # Page components for each module
+│   │   ├── services/        # API service clients
+│   │   ├── context/         # React Context for state
+│   │   ├── hooks/           # Custom React hooks
+│   │   └── utils/           # Utility functions
+│   ├── package.json
+│   └── vite.config.js
+│
+├── backend/                  # Node.js + Express API
+│   ├── src/
+│   │   ├── modules/         # Feature modules
+│   │   │   ├── auth/        # Authentication & authorization
+│   │   │   ├── students/    # Student management
+│   │   │   ├── staff/       # Human resources
+│   │   │   ├── classes/     # Class management
+│   │   │   ├── finance/     # Financial management
+│   │   │   ├── library/     # Library management
+│   │   │   ├── tasks/       # Task management
+│   │   │   ├── dashboard/   # Analytics & dashboards
+│   │   │   └── users/       # User management
+│   │   ├── middleware/      # Express middleware
+│   │   ├── config/          # Configuration files
+│   │   ├── utils/           # Utility functions
+│   │   └── routes/          # Route definitions
+│   ├── database/            # Database migrations & scripts
+│   ├── seeds/               # Database seed data
+│   ├── server.js            # Entry point
+│   └── package.json
+│
+├── database/                 # Database schema & migrations
+│   ├── iisms.sql            # Full schema
+│   └── migrations/          # Incremental migrations
+│
+└── docs/                     # Project documentation
+    ├── ARCHITECTURE.md       # System architecture
+    ├── SETUP.md              # Setup instructions
+    ├── API-REFERENCE.md      # API endpoints
+    ├── DATABASE.md           # Database schema
+    ├── MODULES.md            # Module specifications
+    ├── ROLES-PERMISSIONS.md  # Authorization rules
+    ├── FEATURES-DIVISION.md  # Feature breakdown
+    └── CONTRIBUTING.md       # Contribution guidelines
+```
+
+---
+
+## ✨ Key Features
+
+### 1. **Multi-Tenant RBAC**
+
+- Flexible role-based access control
+- Granular permission management
+- User groups and hierarchies
+
+### 2. **Academic Management**
+
+- Academic year management
+- Class organization
+- Student enrollment tracking
+- Curriculum management
+
+### 3. **Finance Module**
+
+- Invoice generation
+- Payment processing
+- Financial reporting
+- Budget tracking
+
+### 4. **Library System**
+
+- Book cataloging
+- Borrowing/returning
+- Inventory management
+- Due date tracking
+
+### 5. **HR Management**
+
+- Staff directory
+- Attendance tracking
+- Leave management
+- Performance evaluation
+
+### 6. **Real-time Notifications**
+
+- Email notifications
+- SMS alerts (configurable)
+- In-app notifications
+- Notification preferences
+
+### 7. **Comprehensive Logging**
+
+- Activity audit logs
+- System logs
+- User action tracking
+- Error logging
+
+---
+
+## 📚 Installation & Setup
+
+For detailed setup instructions including database configuration, environment variables, and troubleshooting, see [docs/SETUP.md](docs/SETUP.md).
 
 ### Environment Variables
 
-**Backend (`backend/.env`):**
-```env
-NODE_ENV=development
-PORT=3001
+Create `.env` files in both backend and frontend directories:
 
-# Database
+**Backend `.env` example:**
+
+```
+PORT=5000
 DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=iisms
 DB_USER=root
-DB_PASS=
-
-# JWT
-JWT_ACCESS_SECRET=your-access-secret-key
-JWT_REFRESH_SECRET=your-refresh-secret-key
-JWT_ACCESS_EXPIRY=15m
-JWT_REFRESH_EXPIRY=7d
-
-# OTP
-OTP_DEV_MODE=true
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USER=your-email@gmail.com
-MAIL_PASS=your-app-password
-
-# CORS
-CORS_ORIGIN=http://localhost:5173
-
-# Upload
-UPLOAD_DIR=uploads
-MAX_FILE_SIZE=2097152
+DB_PASSWORD=password
+DB_NAME=iisms
+JWT_SECRET=your-secret-key
+NODE_ENV=development
 ```
 
-**Frontend (`frontend/.env`):**
-```env
-VITE_API_BASE_URL=http://localhost:3001/api/v1
+**Frontend `.env` example:**
+
+```
+VITE_API_URL=http://localhost:5000
 VITE_APP_NAME=IISMS
 ```
 
 ---
 
-## 7. Modules Overview
+## 📖 API Documentation
 
-| Module Key | Category | Priority | Backend | Frontend |
-|-----------|----------|----------|---------|----------|
-| `auth` | System | 🔴 P0 | `backend/src/modules/auth/` | `frontend/src/pages/auth/` |
-| `dashboard` | System | 🔴 P0 | `backend/src/modules/dashboard/` | `frontend/src/pages/dashboard/` |
-| `students` | Academic Program | 🔴 P0 | `backend/src/modules/students/` | `frontend/src/pages/students/` |
-| `staff` | General Admin | 🔴 P0 | `backend/src/modules/staff/` | `frontend/src/pages/staff/` |
-| `finance` | General Admin | 🔴 P0 | `backend/src/modules/finance/` | `frontend/src/pages/finance/` |
-| `tasks` | Tasks | 🔴 P0 | `backend/src/modules/tasks/` | `frontend/src/pages/tasks/` |
-| `academic` | Academic Program | 🟡 P1 | — | — |
-| `academic-years` | Settings | 🔴 P0 | `backend/src/modules/academic-years/` | `frontend/src/pages/settings/` |
+Complete API documentation is available at [docs/API-REFERENCE.md](docs/API-REFERENCE.md).
 
-**Priority Levels:**
-- **🔴 P0** — Must have (core system + 5 feature modules)
-- **🟡 P1** — Should have (next phase)
-- **🟢 P2** — Nice to have (future phases)
+### Sample Endpoints
+
+```
+POST   /api/v1/auth/login          - User login
+GET    /api/v1/users               - List users
+POST   /api/v1/students            - Create student
+GET    /api/v1/classes/:id         - Get class details
+POST   /api/v1/finance/invoices    - Create invoice
+GET    /api/v1/dashboard/stats     - Get dashboard stats
+```
 
 ---
 
-## 8. Migration Roadmap
+## 💻 Development
 
-| Phase | Description | Status |
-|-------|-------------|--------|
-| **Phase 0** | ✅ Architecture & Documentation | **Current** |
-| **Phase 1** | 🔧 Database schema + migrations + seed data | 📝 Planned |
-| **Phase 2** | 🔧 Backend: Auth system (login, OTP, JWT) | 📝 Planned |
-| **Phase 3** | 🔧 Frontend: Auth pages, layout, routing | 📝 Planned |
-| **Phase 4** | 🔧 Backend + Frontend: Dashboard | 📝 Planned |
-| **Phase 5** | 🔧 Backend + Frontend: Student Information System | 📝 Planned |
-| **Phase 6** | 🔧 Backend + Frontend: Human Resources | 📝 Planned |
-| **Phase 7** | 🔧 Backend + Frontend: Finance (core) | 📝 Planned |
-| **Phase 8** | 🔧 Backend + Frontend: Tasks | 📝 Planned |
-| **Phase 9** | 🧪 Testing, optimization, deployment | 📝 Planned |
-| **Phase 10** | 🚀 Production deployment | 📝 Planned |
+### Running Development Servers
 
-> 📖 See [docs/ROADMAP.md](docs/ROADMAP.md) for detailed migration plan.
+```bash
+# Backend development server (with hot reload)
+cd backend
+pnpm run dev
 
----
+# Frontend development server (Vite)
+cd frontend
+pnpm run dev
 
-## 9. Development Guidelines
+# Run database migrations
+cd backend
+pnpm run migrate
 
-### API Conventions
+# Seed database with demo data
+cd backend
+pnpm run seed
+```
 
-- **Base URL:** `/api/v1`
-- **Response Format:**
-  ```json
-  {
-    "success": true,
-    "data": { ... },
-    "message": "Operation successful",
-    "pagination": { "page": 1, "limit": 20, "total": 100 }
-  }
-  ```
-- **Error Format:**
-  ```json
-  {
-    "success": false,
-    "error": {
-      "code": "VALIDATION_ERROR",
-      "message": "Validation failed",
-      "details": [{ "field": "email", "message": "Invalid email" }]
-    }
-  }
-  ```
+### Database Migrations
 
-### Authentication
+```bash
+# Run pending migrations
+pnpm run migrate
 
-- **Access Token:** JWT, 15-minute expiry, sent in `Authorization: Bearer <token>` header
-- **Refresh Token:** JWT, 7-day expiry, stored in httpOnly cookie
-- **OTP:** 6-digit code, SHA-256 hashed, 10-minute expiry, max 5 attempts
+# Seed test data
+pnpm run seed:full
 
-### Code Style
+# Reset and seed database
+pnpm run migrate:reset
+```
 
-- **Backend:** ES6+ modules (import/export), async/await throughout
-- **Frontend:** Functional components with hooks
-- **Validation:** Joi (backend) + React Hook Form (frontend)
-- **Error Handling:** Global error handler middleware in Express
-- **Logging:** Winston with different levels per environment
+### Code Standards
 
-### Testing Strategy
-
-- **Backend:** Unit tests (Jest) + Integration tests (Supertest)
-- **Frontend:** Component tests (React Testing Library)
-- **CI/CD:** GitHub Actions (lint → test → build → deploy)
+- Follow existing code style
+- Write descriptive commit messages
+- Add tests for new features
+- Update documentation for API changes
 
 ---
 
-## 10. Documentation Index
+## 🤝 Contributing
 
-| Document | Description |
-|----------|-------------|
-| [Architecture Guide](docs/ARCHITECTURE.md) | Complete system architecture, data flow, design patterns |
-| [Database Schema](docs/DATABASE.md) | New MySQL schema with all tables, indexes, and relationships |
-| [Module Reference](docs/MODULES.md) | All 16 modules with endpoints, components, and patterns |
-| [Roles & Permissions](docs/ROLES-PERMISSIONS.md) | RBAC matrix, role definitions, permission helpers |
-| [API Reference](docs/API-REFERENCE.md) | All REST API endpoints with request/response examples |
-| [Contributing Guide](docs/CONTRIBUTING.md) | How to build modules in the new stack |
-| [Setup Guide](docs/SETUP.md) | Detailed setup instructions for Node.js + React + MySQL |
-| [Migration Roadmap](docs/ROADMAP.md) | Phase-by-phase migration plan from PHP to new stack |
+We welcome contributions from the community! Please see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines on:
+
+- Setting up development environment
+- Creating feature branches
+- Submitting pull requests
+- Code review process
+- Testing requirements
 
 ---
 
-## License
+## 📖 Documentation
 
-**Intango Integrated School Management System (IISMS)** · Holiday Student Project 2026 · Educational Project
+- [Architecture](docs/ARCHITECTURE.md) — System architecture and design patterns
+- [Setup Guide](docs/SETUP.md) — Installation and configuration
+- [API Reference](docs/API-REFERENCE.md) — Complete API endpoints
+- [Database Schema](docs/DATABASE.md) — Database structure and relationships
+- [Module Specifications](docs/MODULES.md) — Detailed module documentation
+- [Roles & Permissions](docs/ROLES-PERMISSIONS.md) — Authorization model
+- [Roadmap](docs/ROADMAP.md) — Feature roadmap and plans
 
 ---
 
-*This branch (`nodejs-react-migration`) represents the re-architecture from the original PHP prototype. See the `master` branch for the original PHP implementation.*
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Database Connection Error**
+
+- Verify MySQL is running
+- Check connection credentials in `.env`
+- Ensure database `iisms` exists
+
+**Port Already in Use**
+
+- Backend: Change `PORT` in `.env`
+- Frontend: Vite will auto-increment port
+
+**Authentication Failures**
+
+- Check JWT_SECRET is set
+- Verify user exists in database
+- Check browser cookies are enabled
+
+For more help, see the detailed [Setup Guide](docs/SETUP.md).
+
+---
+
+## 📞 Support
+
+For questions, issues, or suggestions:
+
+1. Check the [documentation](docs/)
+2. Review existing issues on GitHub
+3. Create a new issue with detailed information
+4. Contact the development team
+
+---
+
+
+## 🎯 Roadmap
+
+Current focus areas:
+
+- ✅ Core CRUD operations for all modules
+- 🏗️ Advanced reporting and analytics
+- 🏗️ Mobile application
+- 🏗️ API rate limiting and caching
+- 🏗️ Internationalization (i18n)
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for detailed roadmap.
+
+---
+
+**Last Updated:** August 31, 2026  
+**Version:** 1.0.0  
+**Status:** Active Development
+
+---
+
+## 🙏 Acknowledgments
+
+Built with ❤️ for the educational community.
