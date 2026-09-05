@@ -1,14 +1,15 @@
-import TopNav from './TopNav';
+import Sidebar from './Sidebar';
 
 export default function DashboardLayout({ children }) {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--color-bg)', display: 'flex', flexDirection: 'column' }}>
-      <TopNav />
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg)', display: 'flex' }}>
+      <Sidebar />
       <main
         style={{
           flex: 1,
+          minWidth: 0,
           padding: '28px 32px',
-          overflowY: 'auto',
+          overflowX: 'hidden',
         }}
       >
         {children}

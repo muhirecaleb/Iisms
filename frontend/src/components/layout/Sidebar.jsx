@@ -129,8 +129,6 @@ const navItems = [
   },
 ];
 
-
-
 function getTypeColor(type) {
   switch (type) {
     case 'success': return '#059669';
@@ -171,15 +169,24 @@ function getTypeIcon(type) {
   }
 }
 
-export default function TopNav() {
+export default function Sidebar() {
   const { user, hasPermission, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState(null);
+  const [compact, setCompact] = useState(window.innerWidth < 1024);
   const userMenuRef = useRef(null);
   const notifRef = useRef(null);
+
+  // Collapse to icon-only rail on narrow screens
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1024px)');
+    const handler = (e) => setCompact(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   // ─── Notification state ──────────────────────────────────────
   const [notifications, setNotifications] = useState([]);
@@ -330,58 +337,62 @@ export default function TopNav() {
     : user?.username?.charAt(0).toUpperCase() || 'U';
 
   return (
-    <header
+    <aside
       style={{
-        height: 64,
+        width: compact ? 72 : 'var(--sidebar-width)',
+        flexShrink: 0,
         background: '#fff',
-        color: '#0A0C1B',
         display: 'flex',
-        alignItems: 'center',
-        padding: '0 16px',
+        flexDirection: 'column',
         position: 'sticky',
         top: 0,
+        height: '100vh',
         zIndex: 100,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-        borderBottom: '1px solid var(--color-border-light)',
-        gap: 8,
+        borderRight: '1px solid var(--color-border-light)',
+        boxShadow: '1px 0 3px rgba(0,0,0,0.04)',
+        transition: 'width 0.25s ease',
       }}
     >
       {/* Logo */}
       <div
         onClick={() => navigate('/')}
+        title="IISMS — Home"
         style={{
           display: 'flex',
           alignItems: 'center',
+          justifyContent: compact ? 'center' : 'flex-start',
           gap: 10,
-          paddingRight: 20,
-          marginRight: 8,
-          borderRight: '1px solid var(--color-border)',
-          flexShrink: 0,
+          padding: compact ? '16px 8px' : '18px 20px',
+          borderBottom: '1px solid var(--color-border-light)',
           cursor: 'pointer',
           userSelect: 'none',
+          flexShrink: 0,
         }}
       >
         <img
           src={logoSvg}
           alt="IISMS Logo"
-          style={{ height: 36, width: 'auto' }}
+          style={{ height: 36, width: 'auto', flexShrink: 0 }}
         />
-        <div style={{ lineHeight: 1.15 }}>
-          <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#93010b', letterSpacing: 0.5 }}>IISMS</div>
-          <div style={{ fontSize: '0.6rem', fontWeight: 600, color: '#1a76d1', letterSpacing: 1, textTransform: 'uppercase' }}>School Management</div>
-        </div>
+        {!compact && (
+          <div style={{ lineHeight: 1.15 }}>
+            <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#93010b', letterSpacing: 0.5 }}>IISMS</div>
+            <div style={{ fontSize: '0.6rem', fontWeight: 600, color: '#1a76d1', letterSpacing: 1, textTransform: 'uppercase' }}>School Management</div>
+          </div>
+        )}
       </div>
 
       {/* Navigation links */}
       <nav
         style={{
           display: 'flex',
-          alignItems: 'center',
+          flexDirection: 'column',
           gap: 2,
           flex: 1,
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          padding: '12px 10px',
+          scrollbarWidth: 'thin',
         }}
       >
         {navItems.map((item, idx) => {
@@ -390,10 +401,9 @@ export default function TopNav() {
               <div
                 key={`divider-${idx}`}
                 style={{
-                  width: 1,
-                  height: 24,
-                  background: 'var(--color-border)',
-                  margin: '0 6px',
+                  height: 1,
+                  background: 'var(--color-border-light)',
+                  margin: '8px 6px',
                   flexShrink: 0,
                 }}
               />
@@ -415,13 +425,16 @@ export default function TopNav() {
             <NavLink
               key={item.path}
               to={item.path}
+              title={compact ? item.label : undefined}
               onMouseEnter={() => setHoveredItem(item.path)}
               onMouseLeave={() => setHoveredItem(null)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 8,
-                padding: '8px 14px',
+                justifyContent: compact ? 'center' : 'flex-start',
+                gap: 12,
+                padding: compact ? '10px 0' : '10px 14px',
+                margin: compact ? '0 4px' : 0,
                 borderRadius: 8,
                 textDecoration: 'none',
                 color: isActive ? '#93010b' : '#0A0C1B',
@@ -435,15 +448,20 @@ export default function TopNav() {
                 whiteSpace: 'nowrap',
                 transition: 'all 0.2s ease',
                 position: 'relative',
+                flexShrink: 0,
               }}
             >
-              {item.icon}
-              <span>{item.label}</span>
+              <span style={{ display: 'flex', flexShrink: 0 }}>{item.icon}</span>
+              {!compact && <span>{item.label}</span>}
 
               {/* Unread task indicator dot */}
               {showDot && (
                 <span
                   style={{
+                    position: 'absolute',
+                    right: compact ? 14 : 12,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
                     width: 8,
                     height: 8,
                     borderRadius: '50%',
@@ -454,17 +472,20 @@ export default function TopNav() {
                 />
               )}
 
-              {/* Bottom tab indicator (always visible on hover, solid on active) */}
+              {/* Left active indicator bar */}
               <div
                 style={{
                   position: 'absolute',
-                  bottom: -2,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: isActive ? 20 : isHovered ? 12 : 0,
-                  height: 3,
-                  borderRadius: '3px 3px 0 0',
-                  background: isActive ? '#93010b' : 'rgba(147, 1, 11, 0.4)',
+                  left: 0,
+                  top: '25%',
+                  height: '50%',
+                  width: 3,
+                  borderRadius: '0 3px 3px 0',
+                  background: isActive
+                    ? '#93010b'
+                    : isHovered
+                      ? 'rgba(147, 1, 11, 0.4)'
+                      : 'transparent',
                   transition: 'all 0.3s ease',
                 }}
               />
@@ -473,22 +494,33 @@ export default function TopNav() {
         })}
       </nav>
 
-      {/* Right section: Notifications + User */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+      {/* Bottom section: Notifications + User */}
+      <div
+        style={{
+          borderTop: '1px solid var(--color-border-light)',
+          padding: '12px 10px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          flexShrink: 0,
+        }}
+      >
         {/* Notification bell with dropdown */}
         <div ref={notifRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setNotifOpen(!notifOpen)}
             style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: compact ? 'center' : 'flex-start',
+              gap: 10,
               background: 'var(--color-bg)',
               border: '1px solid var(--color-border)',
               borderRadius: 8,
               color: '#64748B',
               cursor: 'pointer',
-              padding: 8,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              padding: compact ? '10px 0' : '10px 12px',
               position: 'relative',
               minHeight: 'auto',
               transition: 'all 0.2s ease',
@@ -498,13 +530,16 @@ export default function TopNav() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
+            {!compact && (
+              <span style={{ fontSize: '0.8rem', fontWeight: 500, flex: 1, textAlign: 'left' }}>Notifications</span>
+            )}
             {unreadCount > 0 && (
               <span
                 style={{
-                  position: 'absolute',
-                  top: 2,
-                  right: 2,
-                  width: 18,
+                  position: compact ? 'absolute' : 'static',
+                  top: compact ? 4 : 'auto',
+                  right: compact ? 4 : 'auto',
+                  minWidth: 18,
                   height: 18,
                   borderRadius: '50%',
                   background: 'var(--color-error)',
@@ -516,6 +551,7 @@ export default function TopNav() {
                   fontWeight: 700,
                   color: '#fff',
                   lineHeight: 1,
+                  padding: compact ? 0 : '0 4px',
                 }}
               >
                 {unreadCount}
@@ -523,22 +559,22 @@ export default function TopNav() {
             )}
           </button>
 
-          {/* Notification dropdown */}
+          {/* Notification dropdown — opens to the right of the sidebar */}
           {notifOpen && (
             <div
               role="menu"
               style={{
                 position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: 8,
+                left: 'calc(100% + 12px)',
+                bottom: 0,
                 width: 380,
+                maxWidth: 'calc(100vw - 90px)',
                 background: '#fff',
                 borderRadius: 'var(--radius-md)',
                 boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
                 border: '1px solid var(--color-border-light)',
                 overflow: 'hidden',
-                zIndex: 200,
+                zIndex: 300,
                 color: 'var(--color-text)',
               }}
             >
@@ -755,17 +791,20 @@ export default function TopNav() {
           <button
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             style={{
+              width: '100%',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: compact ? 'center' : 'flex-start',
               gap: 8,
               background: 'var(--color-bg)',
               border: '1px solid var(--color-border)',
               borderRadius: 8,
               cursor: 'pointer',
-              padding: '5px 10px 5px 5px',
+              padding: compact ? '5px 0' : '5px 10px 5px 5px',
               minHeight: 'auto',
               color: '#0A0C1B',
             }}
+            title={compact ? (user?.fullName || user?.username) : undefined}
           >
             <div
               style={{
@@ -793,42 +832,48 @@ export default function TopNav() {
                 initials
               )}
             </div>
-            <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#0A0C1B' }}>{user?.fullName || user?.username}</span>
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{
-                opacity: 0.5,
-                transform: userMenuOpen ? 'rotate(180deg)' : 'none',
-                transition: 'transform 0.2s ease',
-              }}
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
+            {!compact && (
+              <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#0A0C1B', flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user?.fullName || user?.username}
+              </span>
+            )}
+            {!compact && (
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  opacity: 0.5,
+                  transform: userMenuOpen ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.2s ease',
+                  flexShrink: 0,
+                }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            )}
           </button>
 
-          {/* User dropdown */}
+          {/* User dropdown — opens to the right of the sidebar */}
           {userMenuOpen && (
             <div
               role="menu"
               style={{
                 position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: 8,
-                width: 200,
+                left: 'calc(100% + 12px)',
+                bottom: 0,
+                width: 220,
                 background: '#fff',
                 borderRadius: 'var(--radius-md)',
                 boxShadow: '0 10px 40px rgba(0,0,0,0.12)',
                 border: '1px solid var(--color-border-light)',
                 overflow: 'hidden',
-                zIndex: 200,
+                zIndex: 300,
                 color: 'var(--color-text)',
               }}
             >
@@ -896,7 +941,7 @@ export default function TopNav() {
           )}
         </div>
       </div>
-    </header>
+    </aside>
   );
 }
 
@@ -926,3 +971,11 @@ function DropdownItem({ icon, label, onClick }) {
     </button>
   );
 }
+
+
+
+
+
+
+
+
